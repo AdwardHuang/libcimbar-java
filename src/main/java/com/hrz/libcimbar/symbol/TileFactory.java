@@ -1,7 +1,10 @@
 package com.hrz.libcimbar.symbol;
 
+import com.hrz.libcimbar.asset.OriginalBitmapAssets;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -38,8 +41,12 @@ public final class TileFactory {
     private static BufferedImage loadBitmap(int bits, int symbol) {
         String path = String.format("/cimbar/bitmap/%d/%02x.png", bits, symbol);
         try (InputStream in = TileFactory.class.getResourceAsStream(path)) {
-            if (in == null) { throw new IllegalStateException("Missing original bitmap resource " + path + ". Copy the matching PNG from sz3/libcimbar/bitmap into src/main/resources/cimbar/bitmap."); }
-            BufferedImage image = ImageIO.read(in);
+            BufferedImage image;
+            if (in != null) {
+                image = ImageIO.read(in);
+            } else {
+                image = ImageIO.read(new ByteArrayInputStream(OriginalBitmapAssets.loadPng(bits, symbol)));
+            }
             if (image == null) { throw new IllegalStateException("Invalid PNG resource: " + path); }
             return image;
         } catch (IOException e) { throw new IllegalStateException("Cannot read " + path, e); }
