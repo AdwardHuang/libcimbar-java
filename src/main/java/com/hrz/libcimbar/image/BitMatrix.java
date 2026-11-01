@@ -41,6 +41,20 @@ public final class BitMatrix {
         return new BitMatrix(buffer, width, height, xStart + x, yStart + y);
     }
 
+    /** Copies a rectangular view into a tightly packed matrix. */
+    public BitMatrix crop(int x, int y, int cropWidth, int cropHeight) {
+        if (x < 0 || y < 0 || cropWidth <= 0 || cropHeight <= 0 || x + cropWidth > width || y + cropHeight > height) {
+            throw new IndexOutOfBoundsException("Crop exceeds matrix bounds");
+        }
+        byte[] pixels = new byte[Math.multiplyExact(cropWidth, cropHeight)];
+        for (int row = 0; row < cropHeight; row++) {
+            for (int col = 0; col < cropWidth; col++) {
+                pixels[row * cropWidth + col] = (byte) (get(x + col, y + row, 1) == 1 ? 0xff : 0);
+            }
+        }
+        return BitMatrixFactory.fromBinaryImage(pixels, cropWidth, cropHeight);
+    }
+
     public int width() { return width; }
     public int height() { return height; }
 }

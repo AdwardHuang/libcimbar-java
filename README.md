@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.5-SNAPSHOT
+# libcimbar-java 0.1.8-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -48,11 +48,11 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 1. OpenCV `cvtColor`、`filter2D`、`adaptiveThreshold` 的所有边界和舍入细节。
 2. OpenCV `resize(INTER_LINEAR)` 的所有优化路径与像素级一致性。
 3. 原版 PNG 的像素级颜色/透明度边界核验，以及所有 symbol/color mode 的完整兼容验证。
-4. 完整的 `CimbReader` 定位、透视变换、drift 跟踪、FloodDecodePositions。
+4. 四角锚点检测与透视变换尚未实现；当前 `CimbReader` 已实现已矫正图像上的符号网格读取、drift 跟踪和 FloodDecodePositions 调度。
 5. 颜色校正、颜色匹配、交织、Reed-Solomon 解码及完整帧协议。
 6. libcimbar 编码器和文件层 Wirehair/Zstd 协议。
 
-因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 保留了原版测试向量；`OriginalBitmapAssetsTest` 进一步直接加载内嵌的真实 PNG，并对原版测试中的 8 个固定 Hash 值做了真实资源回归验证，同时检查 16 个 8×8 符号的最小两两 Hamming Distance 为 18。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。仍需补齐真实 bitmap，再验证 `TileFactory`、`AverageHash` 和 `SymbolDictionary` 的端到端输出。
+因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 保留了原版测试向量；`OriginalBitmapAssetsTest` 进一步直接加载内嵌的真实 PNG，并对原版测试中的 8 个固定 Hash 值做了真实资源回归验证，同时检查 16 个 8×8 符号的最小两两 Hamming Distance 为 18。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。当前已内置真实 bitmap，并通过固定 Hash 向量验证资源、`AverageHash` 和 `SymbolDictionary` 的基础输出；OpenCV 预处理的逐像素一致性仍需继续验证。
 
 ## Maven 集成（后续）
 
@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.7-SNAPSHOT</version>
+  <version>0.1.8-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -115,3 +115,13 @@ mvn clean install
 - 实现原版连续高置信度且 cooldown 为 4 时的横向/纵向 horizon 扩展。
 - `reset()` 会清空 Java 队列和指令状态，避免原版 C++ reset 未清空容器导致的重复状态问题；正常首次初始化及解码调度规则保持一致。
 - 队列耗尽时返回原版哨兵：index=0、坐标(0,0)、drift=(0,0)、cooldown=0xFF。
+
+
+### 0.1.8：CimbDecoder / CimbReader 符号整合
+
+- 新增 `decoder/CimbFrameConfig`，描述原版网格几何和符号配置，并提供默认 8x8 标准帧参数。
+- 新增 `decoder/CimbDecoder`，整合原版 Bitmap 字典、AverageHash 与 SymbolMatcher，提供 bitmatrix 符号解码。
+- 新增 `decoder/CimbReader`，实现 RGB 图像预处理、网格 padding、FloodDecodePositions 调度、带 drift 的图块裁切、符号识别和位置状态更新。
+- `BitMatrix` 新增紧凑矩形 `crop()`，用于从整幅二值图中提取 (cellSize+2) 方形图块。
+- 修正 `FloodDecodePositions` 的八个初始种子优先级：四个外角种子优先级为 0，四个内侧种子优先级为 1；同优先级保持入队顺序。
+- 本阶段仅实现符号网格读取；透视变换、锚点检测、颜色解码、interleave 反向映射、ECC 和 Fountain 数据重组尚未实现。

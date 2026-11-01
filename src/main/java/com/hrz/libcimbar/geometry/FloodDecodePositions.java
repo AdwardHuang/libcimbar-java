@@ -14,14 +14,15 @@ public final class FloodDecodePositions {
 
     public record DecodePosition(int index, CellPositions.Coordinate coordinate, CellDrift drift, int cooldown) { }
     private record Instruction(CellDrift drift, int bestPriority, int cooldown) { }
-    private record QueueEntry(int index, int priority) { }
+    private record QueueEntry(int index, int priority, long sequence) { }
 
     private final List<CellPositions.Coordinate> positions;
     private final AdjacentCellFinder cellFinder;
     private final boolean[] remaining;
     private final Instruction[] instructions;
-    private final PriorityQueue<QueueEntry> heap = new PriorityQueue<>(Comparator.comparingInt(QueueEntry::priority));
+    private final PriorityQueue<QueueEntry> heap = new PriorityQueue<>(Comparator.comparingInt(QueueEntry::priority).thenComparingLong(QueueEntry::sequence));
     private int count;
+    private long sequence;
 
     public FloodDecodePositions(int spacingX, int spacingY, int dimensionsX, int dimensionsY, int offset, int markerSizeX, int markerSizeY) {
         positions = CellPositions.compute(spacingX, spacingY, dimensionsX, dimensionsY, offset, markerSizeX, markerSizeY, 0, 1);
@@ -39,6 +40,7 @@ public final class FloodDecodePositions {
     /** Resets the scheduler and restores the eight original seed positions. */
     public void reset() {
         count = 0;
+        sequence = 0;
         heap.clear();
         for (int i = 0; i < positions.size(); i++) {
             remaining[i] = true;
@@ -49,20 +51,20 @@ public final class FloodDecodePositions {
         }
         int smallRowLength = cellFinder.calcMidWidth();
         int lastElement = positions.size() - 1;
-        addSeed(0);
-        addSeed(smallRowLength - 1);
-        addSeed(lastElement);
-        addSeed(lastElement - (smallRowLength - 1));
+        addSeed(0, 0);
+        addSeed(smallRowLength - 1, 0);
+        addSeed(lastElement, 0);
+        addSeed(lastElement - (smallRowLength - 1), 0);
         int betweenMarkerBlock = cellFinder.firstMid();
-        addSeed(betweenMarkerBlock);
-        addSeed(betweenMarkerBlock + cellFinder.dimensionsX() - 1);
-        addSeed(lastElement - betweenMarkerBlock);
-        addSeed(lastElement - (betweenMarkerBlock + cellFinder.dimensionsX() - 1));
+        addSeed(betweenMarkerBlock, 1);
+        addSeed(betweenMarkerBlock + cellFinder.dimensionsX() - 1, 1);
+        addSeed(lastElement - betweenMarkerBlock, 1);
+        addSeed(lastElement - (betweenMarkerBlock + cellFinder.dimensionsX() - 1), 1);
     }
 
-    private void addSeed(int index) {
+    private void addSeed(int index, int priority) {
         if (index >= 0 && index < positions.size()) {
-            heap.add(new QueueEntry(index, 0));
+            heap.add(new QueueEntry(index, priority, sequence++));
         }
     }
 
@@ -128,7 +130,7 @@ public final class FloodDecodePositions {
                 continue;
             }
             instructions[next] = new Instruction(new CellDrift(drift.x(), drift.y()), errorDistance, cooldown);
-            heap.add(new QueueEntry(next, errorDistance));
+            heap.add(new QueueEntry(next, errorDistance, sequence++));
         }
     }
 

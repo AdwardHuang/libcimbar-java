@@ -27,6 +27,23 @@ class FloodDecodePositionsTest {
     }
 
     @Test
+    void processesFourOuterSeedsBeforeFourInnerSeeds() {
+        FloodDecodePositions scheduler = create();
+        Set<Integer> outer = Set.of(0, 5, 59, 54);
+        Set<Integer> inner = Set.of(6, 13, 53, 46);
+        Set<Integer> firstFour = new HashSet<>();
+        Set<Integer> nextFour = new HashSet<>();
+        for (int i = 0; i < 4; i++) {
+            firstFour.add(scheduler.next().index());
+        }
+        for (int i = 0; i < 4; i++) {
+            nextFour.add(scheduler.next().index());
+        }
+        assertEquals(outer, firstFour);
+        assertEquals(inner, nextFour);
+    }
+
+    @Test
     void updateSchedulesAdjacentCellsAndPropagatesDriftAndCooldown() {
         FloodDecodePositions scheduler = create();
         FloodDecodePositions.DecodePosition seed = scheduler.next();
