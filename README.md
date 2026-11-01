@@ -205,3 +205,16 @@ mvn clean install
 `decodeFountain` 参数由调用方提供 `chunkSize`、`fountainBlocks` 和 `enableCcm`。这与原版 `Config::fountain_chunk_size()`、`fountain_chunks_per_frame()` 的配置职责一致；当前工程尚未实现完整 Fountain 解码 Sink / Wirehair 数据重组，因此不会把这部分伪装成已完成。
 
 新增测试覆盖原始 cell 坐标采样、重复 Header 区间的 block ID 递增，以及 CCM 在 Color 平面读取前安装。源码依据：[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`CimbDecoder.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。
+
+## 0.2.5：Fountain Sink 与 Wirehair 后端边界
+
+本版本开始移植原版 `fountain_decoder_sink` / `fountain_decoder_stream` 的文件接收生命周期：
+
+- `FountainDecoderStream`：按 `chunkSize` 拆分固定 Fountain packet；每个 packet 前 6 字节为 `FountainMetadata`，剩余字节作为 Wirehair symbol；按 block ID 去重；记录完成状态与进度。
+- `FountainDecoderSink`：按 `encodeId & 0x7` 路由最多 8 个活动 stream；校验帧长度、文件长度和 stream slot 冲突；支持乱序 block、重复 block 丢弃、完成文件回调写出，以及无回调时手动 `recover(id)`。
+- `FrameDataDecoder.decodeFountainToSink(...)`：将 Symbol plane 与 Color plane 分别 RS 解码后的 `symbolData || colorData` 按原版数据流顺序提交给 Fountain Sink。
+- `FountainDecoderBackend`：定义 Wirehair decoder backend SPI，接口对应原版 `wirehair_decoder_create`、`wirehair_decode`、`wirehair_recover` 和 `wirehair_free` 的生命周期。
+
+**重要边界：0.2.5 尚未包含 Wirehair 算法本身，也没有 JNI/native Wirehair adapter。** Sink 层已经可以通过可注入 backend 测试 packet routing、去重、完成和恢复流程，但尚不能独立完成真实 Wirehair 文件恢复。后续需要实现并用原版 Wirehair 测试向量验证纯 Java backend，或明确选择 JNI adapter；不能将测试用 Fake backend 当成 Wirehair 兼容实现。
+
+源码依据：[`fountain_decoder_sink.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/fountain_decoder_sink.h)、[`fountain_decoder_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/fountain_decoder_stream.h)、[`FountainDecoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainDecoder.h)、[`FountainMetadata.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainMetadata.h)、[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)。

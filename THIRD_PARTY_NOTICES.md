@@ -32,3 +32,7 @@ Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h 
 ## Fountain metadata and color correction
 
 The Fountain metadata layout and color-correction algorithm are Java reimplementations based on `sz3/libcimbar` source files `src/lib/fountain/FountainMetadata.h`, `src/lib/cimb_translator/CimbReader.cpp`, and `src/lib/chromatic_adaptation/color_correction.h`. The upstream project is distributed under the Mozilla Public License 2.0. This Java implementation does not include or link OpenCV.
+
+## Fountain decoder protocol boundary
+
+`FountainDecoderStream` and `FountainDecoderSink` are Java-language adaptations of the packet framing, stream routing, duplicate-block filtering, progress, and recovery lifecycle in `sz3/libcimbar/src/lib/fountain/fountain_decoder_stream.h`, `fountain_decoder_sink.h`, and `FountainDecoder.h` (MPL-2.0). This release defines only a backend SPI; it does not include the Wirehair implementation or native Wirehair source.

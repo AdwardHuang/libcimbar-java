@@ -3,6 +3,7 @@ package com.hrz.libcimbar.decoder;
 import com.hrz.libcimbar.ecc.ReedSolomonStream;
 import com.hrz.libcimbar.color.FountainColorCalibrator;
 import com.hrz.libcimbar.fountain.FountainMetadata;
+import com.hrz.libcimbar.fountain.FountainDecoderSink;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,6 +106,21 @@ public final class FrameDataDecoder {
             }
             if (afterSymbolDecode != null) { afterSymbolDecode.accept(symbolData.clone()); }
         });
+    }
+
+    /** Result of decoding both image planes and submitting their byte stream to the Fountain sink. */
+    public record FountainResult(Result frame, long sinkStatus) { }
+
+    /**
+     * Decodes a Fountain frame, then submits the original symbol-plane || color-plane byte stream
+     * to the sink. The sink validates its configured chunk alignment before accepting packets.
+     */
+    public FountainResult decodeFountainToSink(CimbReader reader, int chunkSize, int fountainBlocks,
+                                                boolean enableCcm, FountainDecoderSink sink) {
+        if (sink == null) { throw new IllegalArgumentException("sink cannot be null"); }
+        if (sink.chunkSize() != chunkSize) { throw new IllegalArgumentException("Sink chunk size does not match frame configuration"); }
+        Result frame = decodeFountain(reader, chunkSize, fountainBlocks, enableCcm, null);
+        return new FountainResult(frame, sink.decodeFrame(frame.data()));
     }
 
     /** Deterministic entry point for testing and callers that already have symbol positions. */
