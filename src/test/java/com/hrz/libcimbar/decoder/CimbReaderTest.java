@@ -32,6 +32,7 @@ class CimbReaderTest {
         assertNotNull(first);
         assertEquals(first.index() % 16, first.symbol());
         assertEquals(0, first.distance());
+        assertEquals(0, first.color());
         assertEquals(60, reader.totalCells());
 
         int reads = 1;
@@ -40,6 +41,7 @@ class CimbReaderTest {
             assertNotNull(next);
             assertEquals(next.index() % 16, next.symbol());
             assertEquals(0, next.distance());
+            assertEquals(0, next.color());
             reads++;
         }
         assertEquals(reader.totalCells(), reads);

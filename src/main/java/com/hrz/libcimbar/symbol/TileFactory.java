@@ -24,7 +24,7 @@ public final class TileFactory {
         if (symbol < 0 || symbol >= count) { throw new IllegalArgumentException("Invalid symbol"); }
         if (numColors < 1 || numColors > 8 || color < 0 || color >= numColors) { throw new IllegalArgumentException("Invalid color configuration"); }
         BufferedImage source = loadBitmap(symbolBits, symbol);
-        int[] fg = getColor(color, numColors, colorMode);
+        int[] fg = getColorRgb(color, numColors, colorMode);
         int[] bg = getBackgroundColor(color, numColors, colorMode);
         BufferedImage result = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
         for (int y = 0; y < source.getHeight(); y++) {
@@ -52,7 +52,8 @@ public final class TileFactory {
         } catch (IOException e) { throw new IllegalStateException("Cannot read " + path, e); }
     }
 
-    private static int[] getColor(int index, int numColors, int mode) {
+    public static int[] getColorRgb(int index, int numColors, int mode) {
+        if (numColors < 1 || numColors > 8 || index < 0 || index >= numColors) { throw new IllegalArgumentException("Invalid color index or count"); }
         if ((mode & 0xff) == 0) { return numColors <= 4 ? COLORS_4_OLD[index] : COLORS_8_OLD[index]; }
         if (numColors > 4) { return COLORS_8[index]; }
         if (mode > 0x100) { return COLORS_4_ENC[index]; }

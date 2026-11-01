@@ -12,7 +12,7 @@ import java.awt.image.BufferedImage;
 /** Symbol-grid reader ported from the symbol path of libcimbar's CimbReader. */
 public final class CimbReader {
     public record PositionData(int index, int x, int y) { }
-    public record SymbolRead(int index, int symbol, int x, int y, int driftIndex, int distance, int cooldown) { }
+    public record SymbolRead(int index, int symbol, int color, int x, int y, int driftIndex, int distance, int cooldown) { }
 
     private final BufferedImage image;
     private final CimbDecoder decoder;
@@ -20,8 +20,13 @@ public final class CimbReader {
     private final BitMatrix binaryImage;
     private final FloodDecodePositions positions;
     private final int gridPadding;
+    private final int colorMode;
 
     public CimbReader(BufferedImage image, CimbDecoder decoder, CimbFrameConfig config) {
+        this(image, decoder, config, decoder == null ? 1 : decoder.colorMode());
+    }
+
+    public CimbReader(BufferedImage image, CimbDecoder decoder, CimbFrameConfig config, int colorMode) {
         if (image == null || decoder == null || config == null) { throw new IllegalArgumentException("image, decoder and config are required"); }
         if (decoder.cellSize() != config.cellSize() || decoder.symbolBits() != config.symbolBits()) {
             throw new IllegalArgumentException("Decoder and frame configuration do not match");
@@ -29,6 +34,7 @@ public final class CimbReader {
         this.image = image;
         this.decoder = decoder;
         this.config = config;
+        this.colorMode = colorMode;
         this.gridPadding = Math.min(image.getWidth() - config.imageWidth(), image.getHeight() - config.imageHeight()) / 2;
         boolean good = image.getWidth() >= config.imageWidth() && image.getHeight() >= config.imageHeight();
         if (!good) { throw new IllegalArgumentException("Image is smaller than configured cimbar frame"); }
@@ -54,8 +60,9 @@ public final class CimbReader {
         CellDrift updatedDrift = scheduled.drift();
         updatedDrift.updateDrift(dx, dy);
         int nextCooldown = CellDrift.calculateCooldown(scheduled.cooldown(), match.drift());
+        int color = decoder.decodeColor(image, x + dx, y + dy, config.cellSize(), config.cellSize(), colorMode);
         positions.update(scheduled.index(), updatedDrift, match.distance(), nextCooldown);
-        return new SymbolRead(scheduled.index(), match.symbol(), x + dx, y + dy, match.drift(), match.distance(), nextCooldown);
+        return new SymbolRead(scheduled.index(), match.symbol(), color, x + dx, y + dy, match.drift(), match.distance(), nextCooldown);
     }
 
     public boolean done() { return positions.done(); }

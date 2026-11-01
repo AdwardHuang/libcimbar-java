@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.8-SNAPSHOT
+# libcimbar-java 0.1.9-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -49,10 +49,10 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 2. OpenCV `resize(INTER_LINEAR)` 的所有优化路径与像素级一致性。
 3. 原版 PNG 的像素级颜色/透明度边界核验，以及所有 symbol/color mode 的完整兼容验证。
 4. 四角锚点检测与透视变换尚未实现；当前 `CimbReader` 已实现已矫正图像上的符号网格读取、drift 跟踪和 FloodDecodePositions 调度。
-5. 颜色校正、颜色匹配、交织、Reed-Solomon 解码及完整帧协议。
+5. 自动锚点白色采样与 von Kries 色彩适应、基于 Fountain Header 的完整 CCM 求解、交织反向映射、Reed-Solomon 解码及完整帧协议。
 6. libcimbar 编码器和文件层 Wirehair/Zstd 协议。
 
-因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 保留了原版测试向量；`OriginalBitmapAssetsTest` 进一步直接加载内嵌的真实 PNG，并对原版测试中的 8 个固定 Hash 值做了真实资源回归验证，同时检查 16 个 8×8 符号的最小两两 Hamming Distance 为 18。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。当前已内置真实 bitmap，并通过固定 Hash 向量验证资源、`AverageHash` 和 `SymbolDictionary` 的基础输出；OpenCV 预处理的逐像素一致性仍需继续验证。
+因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前颜色分类核心已移植，但尚未完成自动色彩校正；`FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 保留了原版测试向量；`OriginalBitmapAssetsTest` 进一步直接加载内嵌的真实 PNG，并对原版测试中的 8 个固定 Hash 值做了真实资源回归验证，同时检查 16 个 8×8 符号的最小两两 Hamming Distance 为 18。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。当前已内置真实 bitmap，并通过固定 Hash 向量验证资源、`AverageHash` 和 `SymbolDictionary` 的基础输出；OpenCV 预处理的逐像素一致性仍需继续验证。
 
 ## Maven 集成（后续）
 
@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.8-SNAPSHOT</version>
+  <version>0.1.9-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -125,3 +125,17 @@ mvn clean install
 - `BitMatrix` 新增紧凑矩形 `crop()`，用于从整幅二值图中提取 (cellSize+2) 方形图块。
 - 修正 `FloodDecodePositions` 的八个初始种子优先级：四个外角种子优先级为 0，四个内侧种子优先级为 1；同优先级保持入队顺序。
 - 本阶段仅实现符号网格读取；透视变换、锚点检测、颜色解码、interleave 反向映射、ECC 和 Fountain 数据重组尚未实现。
+
+
+## 0.1.9：颜色解码
+
+本版本在符号识别之外，移植了 `CimbDecoder` 的颜色识别路径：
+
+- `avgColor`：取图块内部区域均值，忽略最外侧一圈像素。
+- `getBestColor`：按原版 `BEST_COLOR_FLOOR=48`、动态范围归一化和 `FIX_THRESH_HIGH=245` 规则修正 RGB。
+- `colorDistance`：使用 `(R-G, G-B, B-R)` 相对颜色向量的平方距离，而不是 RGB 欧氏距离。
+- 颜色表：沿用 `Common.cpp` 的 4 色、8 色、旧版和 encoder 专用调色板。
+- `updateColorCorrection`：支持设置线程局部 3×3 RGB 矩阵；默认不启用颜色校正。
+- `CimbReader.SymbolRead` 新增 `color()`，每次读取同时返回 symbol 与 color。
+
+颜色读取坐标与原版 `CimbReader::read_color()` 一致：从已校正的图块坐标读取 `cellSize × cellSize` 区域，再由 `avgColor` 去掉一圈边缘。自动从定位锚点估计 von Kries 色彩适应矩阵，以及基于 fountain header 的完整 CCM 求解，尚未移植。
