@@ -28,3 +28,7 @@ Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/ReedSolomo
 
 `com.hrz.libcimbar.decoder.FrameDataDecoder` 与 `CimbReader` 的两阶段读取结构，是对 `sz3/libcimbar` `Decoder.h`、`CimbReader.h/.cpp`、`bit_file/bitbuffer.h` 和 `Interleave.h` 的 Java 语言移植。上游项目相关代码采用 MPL-2.0。
 Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h and https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp
+
+## Fountain metadata and color correction
+
+The Fountain metadata layout and color-correction algorithm are Java reimplementations based on `sz3/libcimbar` source files `src/lib/fountain/FountainMetadata.h`, `src/lib/cimb_translator/CimbReader.cpp`, and `src/lib/chromatic_adaptation/color_correction.h`. The upstream project is distributed under the Mozilla Public License 2.0. This Java implementation does not include or link OpenCV.

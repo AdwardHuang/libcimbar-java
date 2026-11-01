@@ -1,5 +1,7 @@
 package com.hrz.libcimbar.decoder;
 
+import com.hrz.libcimbar.color.FountainColorCalibrator;
+import com.hrz.libcimbar.fountain.FountainMetadata;
 import com.hrz.libcimbar.geometry.CellDrift;
 import com.hrz.libcimbar.geometry.CellPositions;
 import com.hrz.libcimbar.geometry.FloodDecodePositions;
@@ -25,6 +27,8 @@ public final class CimbReader {
     private final FloodDecodePositions positions;
     private final int gridPadding;
     private final int colorMode;
+    private FountainMetadata fountainMetadata;
+    private int radioactiveBlockId;
 
     public CimbReader(BufferedImage image, CimbDecoder decoder, CimbFrameConfig config) {
         this(image, decoder, config, decoder == null ? 1 : decoder.colorMode());
@@ -73,6 +77,58 @@ public final class CimbReader {
         if (position == null) { throw new IllegalArgumentException("position cannot be null"); }
         return decoder.decodeColor(image, position.x(), position.y(), config.cellSize(), config.cellSize(), colorMode);
     }
+
+    /** Samples the same three dark-mode or four light-mode 4x4 white anchors as CimbReader.cpp. */
+    public FountainColorCalibrator.Rgb sampleWhitePoint() {
+        int anchorSize = 30;
+        int padding = gridPadding;
+        int[][] anchors;
+        if (config.dark()) {
+            int topLeft = anchorSize + padding - 2;
+            int right = config.imageWidth() + padding - anchorSize - 2;
+            int bottom = config.imageHeight() + padding - anchorSize - 2;
+            anchors = new int[][]{{topLeft, topLeft}, {topLeft, bottom}, {right, topLeft}};
+        } else {
+            int topLeft = (anchorSize << 1) + padding + 6;
+            int right = config.imageWidth() + padding - topLeft - 4;
+            int bottom = config.imageHeight() + padding - topLeft - 4;
+            anchors = new int[][]{{0, topLeft}, {topLeft, 0}, {0, bottom}, {right, 0}};
+        }
+        float red = 1, green = 1, blue = 1;
+        for (int[] anchor : anchors) {
+            long r = 0, g = 0, b = 0;
+            for (int y = anchor[1]; y < anchor[1] + 4; y++) {
+                for (int x = anchor[0]; x < anchor[0] + 4; x++) {
+                    int rgb = image.getRGB(x, y);
+                    r += (rgb >>> 16) & 0xff;
+                    g += (rgb >>> 8) & 0xff;
+                    b += rgb & 0xff;
+                }
+            }
+            red = Math.max(red, r / 16.0f);
+            green = Math.max(green, g / 16.0f);
+            blue = Math.max(blue, b / 16.0f);
+        }
+        return new FountainColorCalibrator.Rgb(red, green, blue);
+    }
+
+    /** Returns the mean RGB of the inner color tile, excluding its one-pixel border. */
+    public int[] sampleColorRgbAt(SymbolPositionRead position) {
+        if (position == null) { throw new IllegalArgumentException("position cannot be null"); }
+        return decoder.avgColor(image, position.x(), position.y(), config.cellSize(), config.cellSize());
+    }
+
+    /** Mirrors CimbReader::update_metadata; metadata is advanced to the next broadcast block id. */
+    public void updateMetadata(byte[] bytes, int chunkSize) {
+        if (bytes == null) { throw new IllegalArgumentException("metadata bytes cannot be null"); }
+        if (bytes.length == 0 && (fountainMetadata == null || fountainMetadata.id() == 0)) { return; }
+        if (fountainMetadata == null || fountainMetadata.id() == 0) { fountainMetadata = new FountainMetadata(bytes); }
+        if (radioactiveBlockId == 0) { radioactiveBlockId = fountainMetadata.radioactiveBlockId(chunkSize); }
+        fountainMetadata = fountainMetadata.incrementBlockId(radioactiveBlockId);
+    }
+
+    public FountainMetadata fountainMetadata() { return fountainMetadata; }
+    public int colorMode() { return colorMode; }
 
     /** Compatibility API: reads symbol and color together. New frame decoding should use the two-pass API. */
     public SymbolRead readNext() {

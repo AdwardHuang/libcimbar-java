@@ -1,4 +1,4 @@
-# libcimbar-java 0.2.2-SNAPSHOT
+# libcimbar-java 0.2.3-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -182,3 +182,16 @@ mvn clean install
 新增测试用原版 30/155 RS 块构造独立 symbol/color 编码平面，验证反交织位偏移、两次 RS 解码、输出拼接顺序，以及颜色读取必须发生在 symbol 回调之后。
 
 源码依据：[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)、[`CimbReader.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`bitbuffer.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/bit_file/bitbuffer.h)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)。
+
+## 0.2.3：Fountain Metadata 与颜色校正初始化
+
+本版本依据原版 `FountainMetadata.h` 与 `CimbReader.cpp` 新增：
+
+- `fountain/FountainMetadata`：六字节 Fountain Header 的编码与解析。前四字节按原版主机小端 ID 解释；文件长度为 25 bit（最高位复用首字节 bit7）；block ID 为 16 bit 大端。支持广播 block ID 递增，并跳过不完整文件尾块对应的 radioactive block。
+- `color/FountainColorCalibrator.headerSamplePositions`：按原版容量、fountain block 数、交织参数和 metadata 长度计算 Header 颜色采样位置，并返回原始 cell index 与预期颜色索引。
+- `FountainColorCalibrator.calibrate`：按颜色类别聚合实测 RGB 均值，追加白点样本，执行 3×3 Moore-Penrose 最小二乘 CCM；纯 Java Jacobi 特征分解实现伪逆，不依赖 OpenCV/native 库。有效颜色类别不足 4 类时不启用 CCM。
+- `CimbReader.updateMetadata`、`fountainMetadata`、`sampleColorRgbAt` 和 `sampleWhitePoint`：提供与原版 reader 对应的 metadata 状态更新、内部 RGB 采样，以及暗色/浅色模式的 4×4 白色锚点采样（暗色模式取三个锚点，各通道取最大均值）。
+
+注意：本版本实现了 Header 数据结构、采样位置规划和 CCM 数值求解；尚未把真实帧中的 Fountain Header 自动定位/提取与 CCM 自动应用完整串接到 `FrameDataDecoder`。调用方仍需从已恢复的数据块提供 6 字节 metadata，并把对应 cell 的内区 RGB 均值交给校准器。
+
+源码依据：[`FountainMetadata.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainMetadata.h)、[`CimbReader.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`color_correction.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/chromatic_adaptation/color_correction.h)、[`adaptation_transform.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/chromatic_adaptation/adaptation_transform.h)。
