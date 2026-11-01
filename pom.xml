@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <name>libcimbar-java</name>
   <description>纯 Java libcimbar 图像编码与解码移植实验工程</description>
   <properties>

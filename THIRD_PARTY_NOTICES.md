@@ -54,3 +54,8 @@ The `com.hrz.libcimbar.encoder.CimbEncoder` Java implementation follows the tile
 ## libcimbar Frame Writer layout
 
 `com.hrz.libcimbar.encoder.CimbFrameWriter` is a Java-language implementation of the frame layout and marker placement behavior in `sz3/libcimbar/src/lib/cimb_translator/CimbWriter.cpp`, with geometry from `Config.h`, `GridConf.h`, `CellPositions.cpp`, and `Interleave.h`. The implementation does not bundle the upstream anchor/guide PNG files in this release; callers must supply the corresponding original marker artwork. The upstream project is licensed under MPL-2.0. No C++ source is included.
+
+## libcimbar non-coupled frame data encoder
+
+`com.hrz.libcimbar.encoder.CimbarFrameDataEncoder` is a Java-language implementation of the non-coupled `Encoder::encode_next()` data layout in `sz3/libcimbar/src/lib/encoder/Encoder.h`, using the project's Java Reed-Solomon stream implementation. The upstream libcimbar project is licensed under MPL-2.0. No upstream C++ source is included.
+Source: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h

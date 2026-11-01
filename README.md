@@ -298,7 +298,7 @@ CimbEncoder.Tile detail = encoder.encodeTile(0b10_1011);
 
 **重要边界：0.2.9 只实现原版 `CimbEncoder` 的 Tile 映射层，不是完整 `Encoder`，也不生成可被原版接收端识别的完整 CIMBAR 帧。** 尚未接入 CimbWriter 的 anchors/guides、完整 CellPositions 图像布局、RS stream、symbol/color 双遍 bit-plane 编排及 Fountain/Wirehair。不要将单独 tile 当作完整视觉码。
 
-## 0.3.0：CIMBAR Frame Writer 图像布局（第一阶段）
+## 0.3.1：CIMBAR Frame Writer 图像布局（第一阶段）
 
 本版本在 0.2.9 的 Tile Encoder 之上新增：
 
@@ -326,8 +326,44 @@ BufferedImage frame = writer.image();
 
 源码依据：[`CimbWriter.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp)、[`Config.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Config.h)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`CellPositions.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellPositions.cpp)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。
 
-### 0.3.0 验证
+### 0.3.1 验证
 
 - 主源码使用 `javac --release 17` 编译通过。
 - 独立 harness 验证标准布局 12,400 个 cell、interleave 后固定坐标、Anchor/Guide 绘制位置、Tile 绘制位置、容量边界，全部通过。
 - 新增 JUnit 测试源码覆盖标准网格、marker/tile 放置及越界校验；当前环境未安装 Maven，未执行 `mvn clean test`。
+
+## 0.3.1：原始字节到 CIMBAR Cell 数据编排
+
+新增 `com.hrz.libcimbar.encoder.CimbarFrameDataEncoder`，移植当前 libcimbar `src/lib/encoder/Encoder.h` 中非 coupled 模式的 `Encoder::encode_next()` 数据准备流程：
+
+- 根据帧几何计算数据 cell 数量，并分别计算 Symbol Plane 与 Color Plane 的字节容量。
+- 按 RS payload 大小将输入补零到单帧容量，使用既有 `ReedSolomonStream` 逐块生成 RS 编码数据。
+- 第一遍将 RS 字节流按 `symbolBits` 读取，写入每个 cell word 的低位 Symbol 区域。
+- 第二遍从后续 RS 字节流按 `colorBits` 读取，写入每个 cell word 的高位 Color 区域。
+- 输出 `int[] packedCells`，可直接传给 `CimbFrameWriter.writeAll()`；Writer 自己按原版 `CellPositions` 的 interleave 顺序将 cell 放到图像位置。
+- `Result` 提供原始长度、补零后的 payload、RS 字节流和两个 plane 的长度，所有数组访问均为防御性复制。
+
+标准 8×8 / Mode B 参数下：12,400 cells；Symbol Plane 为 6,200 bytes（40 个 RS(155,125) codeword）；Color Plane 为 3,100 bytes（20 个 RS(155,125) codeword）；单帧输入容量为 7,500 bytes。该容量由当前 `GridConf.h` 的 4 symbol bits、2 color bits、30/155 RS 和 12,400 cells 推导。
+
+用法：
+
+```java
+CimbFrameConfig config = CimbFrameConfig.standard8x8();
+CimbarFrameDataEncoder dataEncoder = new CimbarFrameDataEncoder(config);
+CimbarFrameDataEncoder.Result encoded = dataEncoder.encode(fileBytes);
+CimbEncoder tileEncoder = new CimbEncoder(config.symbolBits(), Integer.numberOfTrailingZeros(config.numColors()), config.dark(), 1);
+CimbFrameWriter writer = new CimbFrameWriter(config, tileEncoder, originalMarkers);
+writer.writeAll(encoded.packedCells());
+BufferedImage frame = writer.image();
+```
+
+**重要边界：** 本版本完成的是原版非 coupled `Encoder::encode_next()` 的 RS + 双平面 bit 编排前半段，并能输出给 Frame Writer 使用的 packed cell 数组。Marker PNG 仍由调用方提供；Fountain/Wirehair 数据源、文件名 header/zstd 文件协议、coupled/legacy 编码模式、任意模式的原版互通验证尚未完成。没有使用原版接收端对 Java 输出帧进行端到端验证，因此不能宣称已经实现完整文件编码互通。
+
+源码依据：[`Encoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h)（`encode_next()`，symbol pass / color pass / RS stream）、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`CimbWriter.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp)。
+
+### 0.3.1 验证
+
+- 主源码使用 `javac --release 17` 编译通过。
+- 独立 Java harness 验证标准 8×8 容量、12,400 个 packed cells、RS 输出长度 9,300 bytes，以及 Symbol/Color 两个 plane 分别 RS 解码后恢复原始 5,000 + 2,500 bytes，全部通过。
+- 新增 JUnit 测试源码覆盖标准容量、双 plane RS 回环、短输入补零和超容量拒绝；仅用本地 JUnit API stub 编译新增测试源码，未实际运行 JUnit。
+- 当前环境没有 Maven，未执行 `mvn clean test`。
