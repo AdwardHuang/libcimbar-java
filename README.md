@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.6-SNAPSHOT</version>
+  <version>0.1.7-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -104,3 +104,14 @@ mvn clean install
 - 新增几何算法单元测试，覆盖边界行、跨区域邻接、drift 限幅、cooldown 和交织顺序。
 
 源码依据：[`CellDrift.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellDrift.cpp)、[`CellPositions.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellPositions.cpp)、[`AdjacentCellFinder.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/AdjacentCellFinder.cpp)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。
+
+
+### 0.1.7：FloodDecodePositions
+
+- 新增 `geometry/FloodDecodePositions`，按原版优先级队列调度待解码图块。
+- 初始化八个原版种子位置；已出队位置只处理一次。
+- 使用错误距离作为优先级，较低距离优先。
+- 根据 `AdjacentCellFinder` 扩展四邻域，并继承 drift/cooldown。
+- 实现原版连续高置信度且 cooldown 为 4 时的横向/纵向 horizon 扩展。
+- `reset()` 会清空 Java 队列和指令状态，避免原版 C++ reset 未清空容器导致的重复状态问题；正常首次初始化及解码调度规则保持一致。
+- 队列耗尽时返回原版哨兵：index=0、坐标(0,0)、drift=(0,0)、cooldown=0xFF。
