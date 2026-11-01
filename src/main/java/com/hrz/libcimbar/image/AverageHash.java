@@ -2,23 +2,41 @@ package com.hrz.libcimbar.image;
 
 import java.awt.image.BufferedImage;
 
-/** Average hash for small tiles. Inputs larger than 8x8 are reduced to 8x8. */
+/** libcimbar-compatible average hash for small RGB or grayscale tiles. */
 public final class AverageHash {
     private AverageHash() { }
 
+    /** Uses the tile's integer mean grayscale as the threshold, matching threshold=0 in libcimbar. */
     public static long calculate(BufferedImage image) {
+        return calculate(image, 0);
+    }
+
+    /**
+     * Calculates a row-major, most-significant-bit-first hash.
+     * A threshold of 0 means automatic integer mean; otherwise the supplied 0..255 threshold is used.
+     */
+    public static long calculate(BufferedImage image, int threshold) {
         if (image == null) { throw new IllegalArgumentException("image cannot be null"); }
+        if (threshold < 0 || threshold > 255) { throw new IllegalArgumentException("threshold must be 0..255"); }
         int width = image.getWidth();
         int height = image.getHeight();
-        if (width <= 0 || height <= 0) { throw new IllegalArgumentException("Invalid image"); }
-        byte[] gray = new byte[Math.multiplyExact(width, height)];
+        if (width <= 0 || height <= 0 || (long) width * height > Integer.MAX_VALUE) { throw new IllegalArgumentException("Invalid image dimensions"); }
+        byte[] gray = new byte[width * height];
+        boolean singleChannel = image.getColorModel().getNumColorComponents() == 1 && image.getRaster().getNumBands() >= 1;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int rgb = image.getRGB(x, y);
-                int r = (rgb >>> 16) & 0xff;
-                int g = (rgb >>> 8) & 0xff;
-                int b = rgb & 0xff;
-                gray[y * width + x] = (byte) ((4899 * r + 9617 * g + 1868 * b + 8192) >> 14);
+                int value;
+                if (singleChannel) {
+                    value = image.getRaster().getSample(x, y, 0);
+                    if (value > 255) { throw new IllegalArgumentException("Grayscale samples must be 8-bit (0..255)"); }
+                } else {
+                    int rgb = image.getRGB(x, y);
+                    int r = (rgb >>> 16) & 0xff;
+                    int g = (rgb >>> 8) & 0xff;
+                    int b = rgb & 0xff;
+                    value = (4899 * r + 9617 * g + 1868 * b + 8192) >> 14;
+                }
+                gray[y * width + x] = (byte) value;
             }
         }
         if (width > 8 || height > 8) {
@@ -26,11 +44,13 @@ public final class AverageHash {
             width = 8;
             height = 8;
         }
-        long sum = 0;
-        for (byte value : gray) { sum += value & 0xff; }
-        int mean = (int) (sum / gray.length);
+        if (threshold == 0) {
+            long sum = 0;
+            for (byte value : gray) { sum += value & 0xff; }
+            threshold = (int) (sum / gray.length);
+        }
         long hash = 0;
-        for (byte value : gray) { hash = (hash << 1) | (((value & 0xff) > mean) ? 1L : 0L); }
+        for (byte value : gray) { hash = (hash << 1) | (((value & 0xff) > threshold) ? 1L : 0L); }
         return hash;
     }
 

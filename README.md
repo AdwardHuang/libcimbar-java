@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.1-SNAPSHOT
+# libcimbar-java 0.1.2-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -27,7 +27,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 - `AdaptiveThreshold`：滑动窗口均值阈值，边界复制。
 - `BinaryImagePacker`：行优先、MSB-first 位打包。
 - `BitMatrix` / `BitMatrixFactory`：线性 bit 视图。
-- `AverageHash`：平均哈希基础实现。
+- `AverageHash`：RGB 灰度转换、整数均值阈值、行优先 MSB-first Hash；支持显式阈值参数。
 - `FuzzyAHash`：按 libcimbar 原版规则，从 7×7 / 10×10 二值网格提取九个偏移 Hash，支持 ALL / FAST 模式。
 - `TileFactory`：按 classpath 原版 PNG 资源着色。
 - `SymbolDictionary`：生成符号 Hash 字典。
@@ -42,7 +42,7 @@ src/main/resources/cimbar/bitmap/2/00.png ... 03.png
 src/main/resources/cimbar/bitmap/4/00.png ... 0f.png
 ```
 
-目前压缩包不伪造原版图案，也不内置自行绘制的替代图案。未放入资源时，基础 Demo 和单元测试仍可运行；调用 `SymbolDictionary.load(...)` 会明确提示缺少资源。
+目前压缩包不伪造原版图案，也不内置自行绘制的替代图案。未放入资源时，基础 Demo 和不依赖资源的单元测试仍可运行；调用 `SymbolDictionary.load(...)` 会明确提示缺少资源。
 
 ## 重要兼容性说明
 
@@ -55,7 +55,7 @@ src/main/resources/cimbar/bitmap/4/00.png ... 0f.png
 5. 颜色校正、颜色匹配、交织、Reed-Solomon 解码及完整帧协议。
 6. libcimbar 编码器和文件层 Wirehair/Zstd 协议。
 
-因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序，但尚未使用原版 PNG 完成端到端输出比对。下一步应补齐原版 bitmap，再验证 `TileFactory`、`AverageHash` 和 `SymbolDictionary`。
+因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 增加了原版 `averageHashTest.cpp` 中八个固定 Hash 值的回归断言，但测试图像是由这些 Hash 位图合成的，因此只能验证阈值、位序和 8x8 缩放行为，不能替代原版 PNG 的独立验证。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。仍需补齐真实 bitmap，再验证 `TileFactory`、`AverageHash` 和 `SymbolDictionary` 的端到端输出。
 
 ## Maven 集成（后续）
 
@@ -65,7 +65,7 @@ src/main/resources/cimbar/bitmap/4/00.png ... 0f.png
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.2-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -74,3 +74,8 @@ src/main/resources/cimbar/bitmap/4/00.png ... 0f.png
 ```bash
 mvn clean install
 ```
+
+
+## 0.1.3 修复
+
+`AverageHash` 对单通道灰度图直接读取 Raster 原始 8-bit 采样值，避免 `BufferedImage.getRGB()` 的灰度颜色空间转换改变阈值比较结果。RGB 图像仍走 RGB 转灰度路径。16-bit 单通道输入会明确拒绝，避免静默截断。
