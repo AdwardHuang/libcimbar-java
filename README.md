@@ -218,3 +218,18 @@ mvn clean install
 **重要边界：0.2.5 尚未包含 Wirehair 算法本身，也没有 JNI/native Wirehair adapter。** Sink 层已经可以通过可注入 backend 测试 packet routing、去重、完成和恢复流程，但尚不能独立完成真实 Wirehair 文件恢复。后续需要实现并用原版 Wirehair 测试向量验证纯 Java backend，或明确选择 JNI adapter；不能将测试用 Fake backend 当成 Wirehair 兼容实现。
 
 源码依据：[`fountain_decoder_sink.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/fountain_decoder_sink.h)、[`fountain_decoder_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/fountain_decoder_stream.h)、[`FountainDecoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainDecoder.h)、[`FountainMetadata.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainMetadata.h)、[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)。
+
+
+## 0.2.6：Wirehair GF(256 算术基础
+
+本版本开始纯 Java Wirehair 移植，新增 `fountain/wirehair/GF256`：
+
+- 按 Wirehair 上游 `WirehairCodec.h` 文档使用 GF(256) 不可约多项式 `0x14D`（`x^8 + x^6 + x^3 + x^2 + 1`），生成元为 `2`。注意这与本工程 Reed-Solomon 使用的 `0x187` 是两个不同的有限域参数，不能混用。
+- 实现加/减（XOR）、乘法、除法、乘法逆元、整数幂。
+- 实现 byte[] 标量乘、`destination ^= coefficient * source`、多行线性组合，为 Wirehair heavy matrix 和 GF256 row solver 提供底层操作。
+- 静态初始化检查生成元是否覆盖全部 255 个非零元素。
+- 新增有限域遍历、逆元、分配律、向量运算和线性组合测试。
+
+**完成边界：** 0.2.6 只完成 Wirehair 的 GF(256) 算术层，尚未实现 Wirehair 的 PRNG、Peel Row 参数、矩阵构造、Peeling、Compression、Gaussian Elimination、编码器或解码器。`FountainDecoderBackend` 仍然需要后续真正的 Wirehair 后端实现。当前没有声称已具备 Wirehair 互通能力。
+
+源码依据：[`WirehairCodec.h`](https://github.com/catid/wirehair/blob/master/WirehairCodec.h) 中的 Heavy Submatrix / GF(256) 说明；Wirehair 上游 README 对编码/解码 API 生命周期的说明：[`README.md`](https://github.com/catid/wirehair/blob/master/README.md)。

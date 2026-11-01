@@ -36,3 +36,9 @@ The Fountain metadata layout and color-correction algorithm are Java reimplement
 ## Fountain decoder protocol boundary
 
 `FountainDecoderStream` and `FountainDecoderSink` are Java-language adaptations of the packet framing, stream routing, duplicate-block filtering, progress, and recovery lifecycle in `sz3/libcimbar/src/lib/fountain/fountain_decoder_stream.h`, `fountain_decoder_sink.h`, and `FountainDecoder.h` (MPL-2.0). This release defines only a backend SPI; it does not include the Wirehair implementation or native Wirehair source.
+
+
+## Wirehair GF(256 field specification
+
+`com.hrz.libcimbar.fountain.wirehair.GF256` is a clean Java implementation of the GF(256) field arithmetic contract documented by Christopher A. Taylor's Wirehair project: polynomial `0x14D`, generator element `2`. No Wirehair C/C++ source is included or linked in this release. The upstream Wirehair project is distributed under the BSD 3-Clause license.
+Source: https://github.com/catid/wirehair/blob/master/WirehairCodec.h
