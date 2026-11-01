@@ -4,6 +4,7 @@ import com.hrz.libcimbar.decoder.CimbFrameConfig;
 
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
@@ -58,6 +59,23 @@ public final class CimbarEncoder {
         this.interleavePartitions = interleavePartitions;
     }
 
+    /** Encodes UTF-8 text as one libcimbar-java application frame. */
+    public BufferedImage encodeText(String text) {
+        return encodeFrame(com.hrz.libcimbar.api.CimbarPayloadAccess.encodeText(text, inputCapacityBytes()));
+    }
+
+    /** Encodes a file (basename + raw bytes) as one application frame; oversized files are rejected. */
+    public BufferedImage encodeFile(Path file) throws IOException {
+        if (file == null) { throw new IllegalArgumentException("file cannot be null"); }
+        if (!Files.isRegularFile(file)) { throw new IOException("Not a regular file: " + file); }
+        String fileName = file.getFileName().toString();
+        long fileSize = Files.size(file);
+        if (com.hrz.libcimbar.api.CimbarPayloadAccess.encodedLength(fileName, fileSize) > inputCapacityBytes()) {
+            throw new IllegalArgumentException("File is too large for one frame: " + fileSize + " content bytes plus application header/name exceed capacity " + inputCapacityBytes());
+        }
+        return encodeFrame(com.hrz.libcimbar.api.CimbarPayloadAccess.encodeFile(fileName, Files.readAllBytes(file), inputCapacityBytes()));
+    }
+
     /** Encodes one complete fixed-capacity frame and returns its image. */
     public BufferedImage encodeFrame(byte[] input) {
         return encodeDetailed(input).frame();
@@ -76,6 +94,13 @@ public final class CimbarEncoder {
     }
 
     public int inputCapacityBytes() { return dataEncoder.inputCapacityBytes(); }
+    /** Maximum UTF-8 text bytes after the single-frame application header. */
+    public int maxTextContentBytes() { return com.hrz.libcimbar.api.CimbarPayloadAccess.maxContentLength(null, inputCapacityBytes()); }
+    /** Maximum file content bytes after the application header and UTF-8 filename. */
+    public int maxFileContentBytes(String fileName) {
+        if (fileName == null || fileName.isBlank()) { throw new IllegalArgumentException("fileName cannot be blank"); }
+        return com.hrz.libcimbar.api.CimbarPayloadAccess.maxContentLength(fileName, inputCapacityBytes());
+    }
     public int cellCapacity() { return dataEncoder.cellCount(); }
     public CimbFrameConfig config() { return config; }
 

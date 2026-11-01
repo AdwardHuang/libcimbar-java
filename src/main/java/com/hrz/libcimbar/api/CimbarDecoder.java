@@ -30,6 +30,34 @@ public final class CimbarDecoder {
         return toPublicResult(result);
     }
 
+    /** Decodes and verifies a single-frame UTF-8 text payload. */
+    public CimbarTextResult decodeText(BufferedImage image) {
+        CimbarPayloadCodec.Payload payload = CimbarPayloadCodec.decode(decodeFrame(image).data());
+        if (payload.type() != CimbarPayloadCodec.TYPE_TEXT) { throw new IllegalArgumentException("Frame contains a file, not text"); }
+        return CimbarTextResult.from(payload);
+    }
+
+    /** Decodes and verifies a single-frame file payload. */
+    public CimbarFileResult decodeFile(BufferedImage image) {
+        CimbarPayloadCodec.Payload payload = CimbarPayloadCodec.decode(decodeFrame(image).data());
+        if (payload.type() != CimbarPayloadCodec.TYPE_FILE) { throw new IllegalArgumentException("Frame contains text, not a file"); }
+        return new CimbarFileResult(payload);
+    }
+
+    /** Maximum application bytes available in one frame, before envelope and filename overhead. */
+    public int inputCapacityBytes() {
+        int cells = com.hrz.libcimbar.geometry.CellPositions.compute(config.frame().spacingX(), config.frame().spacingY(),
+            config.frame().dimensionsX(), config.frame().dimensionsY(), config.frame().offset(), config.frame().markerSizeX(),
+            config.frame().markerSizeY(), config.interleaveBlocks(), config.interleavePartitions()).size();
+        int colorBits = Integer.numberOfTrailingZeros(config.frame().numColors());
+        int symbolBytes = cells * config.frame().symbolBits() / 8;
+        int colorBytes = cells * colorBits / 8;
+        if (symbolBytes % config.eccBlockSize() != 0 || colorBytes % config.eccBlockSize() != 0) {
+            throw new IllegalStateException("Frame planes do not align to configured RS block size");
+        }
+        return ((symbolBytes + colorBytes) / config.eccBlockSize()) * (config.eccBlockSize() - config.eccBytes());
+    }
+
     /** Decodes a fountain frame, including optional color correction calibration. */
     public CimbarFrameResult decodeFountainFrame(BufferedImage image, int chunkSize, int fountainBlocks,
                                                   boolean enableCcm) {
