@@ -385,3 +385,25 @@ BufferedImage frame = encoder.encodeFrame(fileBytes);
 **Marker 资源边界：** 本版本仍要求调用方传入四张原版 marker 图片。没有将合成图片伪装成原版资源，也没有声称已完成原版 PNG 的内嵌。`CimbFrameWriter` 的 marker 摆放坐标已对照当前上游 `CimbWriter.cpp`；原版资源的可靠提取与内嵌留待后续完成。
 
 **兼容性边界：** 该入口只完成单帧的 RS 双平面数据编排和图像绘制，不包含文件级 Wirehair Fountain、Zstd 压缩/文件头，也未用官方 libcimbar decoder 做端到端互通验证。
+
+
+## 0.3.3：原版 Marker 加载器与无参资源入口
+
+新增 `CimbFrameMarkers.loadOriginal(...)`，按上游 `CimbWriter.cpp` 使用的文件命名加载 dark/light 四张 PNG：
+
+- `anchor-dark.png` / `anchor-light.png`
+- `anchor-secondary-dark.png` / `anchor-secondary-light.png`
+- `guide-horizontal-dark.png` / `guide-horizontal-light.png`
+- `guide-vertical-dark.png` / `guide-vertical-light.png`
+
+支持从原版仓库的 `bitmap` 目录加载：
+
+```java
+CimbFrameConfig config = CimbFrameConfig.standard8x8();
+CimbarEncoder encoder = new CimbarEncoder(config, Path.of("/path/to/libcimbar/bitmap"));
+BufferedImage frame = encoder.encodeFrame(data);
+```
+
+也支持从 classpath 的 `cimbar/bitmap/` 加载：`new CimbarEncoder(config)`。将所需的四张原版 PNG 放入应用的 `src/main/resources/cimbar/bitmap/` 即可。
+
+**重要资源说明：** 本版本增加了严格的原版文件加载逻辑，但本次交付没有把上游 PNG 本体嵌入 JAR。当前网页环境能核查上游原始 PNG 和 `CimbWriter.cpp` 的文件名，但无法把网页图片响应可靠地导出为工程二进制资源；因此没有用手工重绘或合成图替代原版资源。缺失资源时会抛出明确的 `IOException`，不会静默回退到伪造图片。

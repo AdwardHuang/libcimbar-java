@@ -65,3 +65,9 @@ Source: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h
 
 `com.hrz.libcimbar.encoder.CimbarEncoder` composes the Java data-plane encoder, tile encoder, and frame writer. Its frame layout follows the upstream `Encoder::encode_next()` and `CimbWriter.cpp` behavior; the caller-provided marker images are not bundled by this release.
 Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h and https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp
+
+
+## Original frame marker loader (0.3.3)
+
+The marker loader uses the upstream file names and dark/light selection from `CimbWriter.cpp`. It loads caller-supplied, unmodified upstream PNG files; this release does not redistribute those PNG binaries.
+Source: https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp

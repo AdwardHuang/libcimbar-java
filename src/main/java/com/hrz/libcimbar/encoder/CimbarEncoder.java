@@ -3,10 +3,12 @@ package com.hrz.libcimbar.encoder;
 import com.hrz.libcimbar.decoder.CimbFrameConfig;
 
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.nio.file.Path;
 
 /**
  * High-level one-frame encoder that composes the RS/data-plane stage, tile encoder,
- * and frame writer. Original anchor/guide artwork must be supplied by the caller.
+ * and frame writer. Original anchor/guide artwork can be loaded from an upstream bitmap directory or classpath resources.
  * This class does not implement the file-level Wirehair/Zstd fountain protocol.
  */
 public final class CimbarEncoder {
@@ -24,6 +26,21 @@ public final class CimbarEncoder {
     private final int colorMode;
     private final int interleaveBlocks;
     private final int interleavePartitions;
+
+    /** Loads marker PNGs from the classpath resource directory /cimbar/bitmap. */
+    public CimbarEncoder(CimbFrameConfig config) throws IOException {
+        this(config, CimbFrameMarkers.loadOriginal(requireConfig(config).dark()));
+    }
+
+    /** Loads marker PNGs from an upstream libcimbar bitmap directory. */
+    public CimbarEncoder(CimbFrameConfig config, Path bitmapDirectory) throws IOException {
+        this(config, CimbFrameMarkers.loadOriginal(bitmapDirectory, requireConfig(config).dark()));
+    }
+
+    private static CimbFrameConfig requireConfig(CimbFrameConfig config) {
+        if (config == null) { throw new IllegalArgumentException("config cannot be null"); }
+        return config;
+    }
 
     public CimbarEncoder(CimbFrameConfig config, CimbFrameMarkers markers) {
         this(config, markers, 30, 155, 155, 2, 1);
