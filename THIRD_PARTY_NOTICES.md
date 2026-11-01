@@ -50,3 +50,7 @@ The Java implementation in `com.hrz.libcimbar.fountain.wirehair` follows the PCG
 ## libcimbar Tile encoder mapping
 
 The `com.hrz.libcimbar.encoder.CimbEncoder` Java implementation follows the tile-index mapping in `sz3/libcimbar`, `src/lib/cimb_translator/CimbEncoder.cpp`, and uses the project's existing embedded original bitmap assets and `TileFactory`. The implementation is a clean Java port of the mapping behavior; no C++ source code is included. libcimbar is licensed under MPL-2.0; see https://github.com/sz3/libcimbar/blob/master/LICENSE.
+
+## libcimbar Frame Writer layout
+
+`com.hrz.libcimbar.encoder.CimbFrameWriter` is a Java-language implementation of the frame layout and marker placement behavior in `sz3/libcimbar/src/lib/cimb_translator/CimbWriter.cpp`, with geometry from `Config.h`, `GridConf.h`, `CellPositions.cpp`, and `Interleave.h`. The implementation does not bundle the upstream anchor/guide PNG files in this release; callers must supply the corresponding original marker artwork. The upstream project is licensed under MPL-2.0. No C++ source is included.

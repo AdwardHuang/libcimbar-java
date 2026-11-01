@@ -297,3 +297,37 @@ CimbEncoder.Tile detail = encoder.encodeTile(0b10_1011);
 ```
 
 **重要边界：0.2.9 只实现原版 `CimbEncoder` 的 Tile 映射层，不是完整 `Encoder`，也不生成可被原版接收端识别的完整 CIMBAR 帧。** 尚未接入 CimbWriter 的 anchors/guides、完整 CellPositions 图像布局、RS stream、symbol/color 双遍 bit-plane 编排及 Fountain/Wirehair。不要将单独 tile 当作完整视觉码。
+
+## 0.3.0：CIMBAR Frame Writer 图像布局（第一阶段）
+
+本版本在 0.2.9 的 Tile Encoder 之上新增：
+
+- `CimbFrameMarkers`：接收原版 Anchor、Secondary Anchor、Horizontal Guide、Vertical Guide 图像，并在构造时复制资源，避免调用方修改内部图案。
+- `CimbFrameWriter`：按 libcimbar `CimbWriter.cpp` 的坐标规则绘制四角定位图案、横纵 Guide，并按 `CellPositions` 的原版顺序写入 Tile。
+- 标准 8×8 布局使用 1024×1024 内部图像、112×112 cell grid、9 像素间距、8 像素偏移、四角各 6×6 cell 留空、155 个 RS block interleave、2 个 partitions，数据 cell 总数为 12,400。
+- 支持指定更大的输出画布，内部 1024×1024 帧按原版逻辑居中。
+- `writeNext(int)` 按顺序写一个 packed cell；`writeAll(int[])` 批量写入；`image()` 返回图像副本。
+
+示例（Marker PNG 必须使用 libcimbar 对应模式的原版资源）：
+
+```java
+BufferedImage anchor = ImageIO.read(new File("bitmap/anchor-dark.png"));
+BufferedImage secondary = ImageIO.read(new File("bitmap/anchor-secondary-dark.png"));
+BufferedImage horizontal = ImageIO.read(new File("bitmap/guide-horizontal-dark.png"));
+BufferedImage vertical = ImageIO.read(new File("bitmap/guide-vertical-dark.png"));
+CimbFrameMarkers markers = new CimbFrameMarkers(anchor, secondary, horizontal, vertical);
+CimbEncoder encoder = new CimbEncoder(4, 2, true, 1);
+CimbFrameWriter writer = new CimbFrameWriter(CimbFrameConfig.standard8x8(), encoder, markers);
+writer.writeAll(packedCellValues);
+BufferedImage frame = writer.image();
+```
+
+**重要边界：** 本版本尚未把四种 Anchor/Guide PNG 资源内嵌到 JAR；调用方必须提供与当前 libcimbar 版本、dark/light 模式匹配的原版资源。测试使用合成 marker 只验证绘制位置，不代表这些测试图案能被 libcimbar 识别。此外，当前 `writeAll` 接收的是已经完成 bit-plane/ECC 处理的 packed cell 值；尚未实现原版完整 `Encoder` 的 RS stream、Symbol/Color 双平面字节编排、从原始 byte[] 到 cell 序列的转换，以及 Fountain/Wirehair 帧生成。因此本版本可以生成布局完整的测试图像，但不能声称已经具备原版文件编码互通能力。
+
+源码依据：[`CimbWriter.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp)、[`Config.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Config.h)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`CellPositions.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellPositions.cpp)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。
+
+### 0.3.0 验证
+
+- 主源码使用 `javac --release 17` 编译通过。
+- 独立 harness 验证标准布局 12,400 个 cell、interleave 后固定坐标、Anchor/Guide 绘制位置、Tile 绘制位置、容量边界，全部通过。
+- 新增 JUnit 测试源码覆盖标准网格、marker/tile 放置及越界校验；当前环境未安装 Maven，未执行 `mvn clean test`。
