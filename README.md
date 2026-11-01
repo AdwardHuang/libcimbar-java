@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.0-SNAPSHOT
+# libcimbar-java 0.1.1-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -28,6 +28,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 - `BinaryImagePacker`：行优先、MSB-first 位打包。
 - `BitMatrix` / `BitMatrixFactory`：线性 bit 视图。
 - `AverageHash`：平均哈希基础实现。
+- `FuzzyAHash`：按 libcimbar 原版规则，从 7×7 / 10×10 二值网格提取九个偏移 Hash，支持 ALL / FAST 模式。
 - `TileFactory`：按 classpath 原版 PNG 资源着色。
 - `SymbolDictionary`：生成符号 Hash 字典。
 - `SymbolMatcher`：按候选顺序进行汉明距离匹配。
@@ -54,7 +55,7 @@ src/main/resources/cimbar/bitmap/4/00.png ... 0f.png
 5. 颜色校正、颜色匹配、交织、Reed-Solomon 解码及完整帧协议。
 6. libcimbar 编码器和文件层 Wirehair/Zstd 协议。
 
-因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。建议先补齐原版 PNG，再用原版测试图和固定输出做逐项回归。
+因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前 `FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序，但尚未使用原版 PNG 完成端到端输出比对。下一步应补齐原版 bitmap，再验证 `TileFactory`、`AverageHash` 和 `SymbolDictionary`。
 
 ## Maven 集成（后续）
 
