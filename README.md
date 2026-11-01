@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.9-SNAPSHOT
+# libcimbar-java 0.2.0-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.9-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -139,3 +139,15 @@ mvn clean install
 - `CimbReader.SymbolRead` 新增 `color()`，每次读取同时返回 symbol 与 color。
 
 颜色读取坐标与原版 `CimbReader::read_color()` 一致：从已校正的图块坐标读取 `cellSize × cellSize` 区域，再由 `avgColor` 去掉一圈边缘。自动从定位锚点估计 von Kries 色彩适应矩阵，以及基于 fountain header 的完整 CCM 求解，尚未移植。
+
+
+## 0.2.0：Interleave 与位流恢复
+
+本版本新增：
+
+- `stream/Interleave`：按原版 `Interleave.h` 实现 `interleaveIndices`、逆映射、列表交织和反交织。
+- `stream/BitBuffer`：按原版 `bit_file/bitbuffer.h` 实现 MSB-first 位读写、跨字节读写和显式偏移写入。
+- `stream/CellDataAssembler`：将每个图块的 `symbol` 作为低位、`color` 作为高位，组成 `(color << symbolBits) | symbol`，再按交织位置恢复数据流顺序。
+- `CimbReader.readAll()` 与 `readDataBytes(...)`：提供从整帧图像到原始位流字节的便捷入口。
+
+注意：本版本完成的是图块字段合并、交织位置映射和位缓冲层；尚未移植 Reed-Solomon 解码、Fountain Metadata 解析或 OpenRQ/Wirehair 解码。交织参数（块数、分区数）需要由对应帧配置明确传入，不能擅自假定。

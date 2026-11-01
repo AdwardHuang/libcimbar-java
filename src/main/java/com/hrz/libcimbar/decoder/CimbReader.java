@@ -7,6 +7,9 @@ import com.hrz.libcimbar.image.BitMatrix;
 import com.hrz.libcimbar.image.BitMatrixFactory;
 import com.hrz.libcimbar.image.SymbolGridPreprocessor;
 import com.hrz.libcimbar.symbol.SymbolMatcher;
+import com.hrz.libcimbar.stream.CellDataAssembler;
+import java.util.ArrayList;
+import java.util.List;
 import java.awt.image.BufferedImage;
 
 /** Symbol-grid reader ported from the symbol path of libcimbar's CimbReader. */
@@ -63,6 +66,25 @@ public final class CimbReader {
         int color = decoder.decodeColor(image, x + dx, y + dy, config.cellSize(), config.cellSize(), colorMode);
         positions.update(scheduled.index(), updatedDrift, match.distance(), nextCooldown);
         return new SymbolRead(scheduled.index(), match.symbol(), color, x + dx, y + dy, match.drift(), match.distance(), nextCooldown);
+    }
+
+    /** Reads all remaining cells in flood order. */
+    public List<SymbolRead> readAll() {
+        List<SymbolRead> result = new ArrayList<>();
+        while (!done()) {
+            SymbolRead read = readNext();
+            if (read == null) { break; }
+            result.add(read);
+        }
+        return List.copyOf(result);
+    }
+
+    /** Reads the complete frame and assembles symbol/color bits in original interleaved stream order. */
+    public byte[] readDataBytes(int interleaveBlocks, int interleavePartitions) {
+        List<SymbolRead> reads = readAll();
+        int colorBits = Integer.numberOfTrailingZeros(config.numColors());
+        if ((1 << colorBits) != config.numColors()) { throw new IllegalStateException("numColors must be a power of two to form a bitstream"); }
+        return CellDataAssembler.assemble(reads, totalCells(), config.symbolBits(), colorBits, interleaveBlocks, interleavePartitions);
     }
 
     public boolean done() { return positions.done(); }
