@@ -277,3 +277,23 @@ byte[] payload = result.data();
 ```
 
 边界说明：该 API 输入必须是已经定位、裁切并几何归一化的 CIMBAR 帧；本版本没有实现任意照片中的码区定位/透视矫正，也没有实现帧编码器或完整 Wirehair backend。`standard8x8` 仅提供既有 FrameDataDecoder 的参数组合，不代表所有输入帧尺寸均已验证。
+
+## 0.2.9：CIMBAR Tile Encoder（第一阶段）
+
+本版本新增 `com.hrz.libcimbar.encoder.CimbEncoder`，按 libcimbar 原版 `src/lib/cimb_translator/CimbEncoder.cpp` 的索引规则，将一个 cell packed word 映射到原版 Symbol bitmap 与颜色组合：
+
+- `symbol = index % (1 << symbolBits)`
+- `color = index / (1 << symbolBits)`
+- `index = packedBits % (numSymbols * numColors)`（Java 使用等价的低位掩码，因为 tile 总数为 2 的幂）
+- 通过已有 `TileFactory` 和内嵌原版 bitmap 资源生成 tile。
+
+示例：
+
+```java
+CimbEncoder encoder = new CimbEncoder(4, 2, true, 1);
+BufferedImage tile = encoder.encode(0b10_1011);
+CimbEncoder.Tile detail = encoder.encodeTile(0b10_1011);
+// detail.symbol() == 11, detail.color() == 2
+```
+
+**重要边界：0.2.9 只实现原版 `CimbEncoder` 的 Tile 映射层，不是完整 `Encoder`，也不生成可被原版接收端识别的完整 CIMBAR 帧。** 尚未接入 CimbWriter 的 anchors/guides、完整 CellPositions 图像布局、RS stream、symbol/color 双遍 bit-plane 编排及 Fountain/Wirehair。不要将单独 tile 当作完整视觉码。

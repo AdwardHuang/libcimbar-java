@@ -46,3 +46,7 @@ Source: https://github.com/catid/wirehair/blob/master/WirehairCodec.h
 ### Wirehair PCG / Peel row generation (0.2.7)
 
 The Java implementation in `com.hrz.libcimbar.fountain.wirehair` follows the PCG generator, peel-row weight distribution, row-parameter initialization, and column-iteration algorithms in the vendored Wirehair source distributed by sz3/libcimbar. Wirehair is Copyright (c) 2012-2018 Christopher A. Taylor and is distributed under the BSD 3-Clause license. This project contains a Java reimplementation of the documented algorithms; it does not include the upstream C/C++ source files.
+
+## libcimbar Tile encoder mapping
+
+The `com.hrz.libcimbar.encoder.CimbEncoder` Java implementation follows the tile-index mapping in `sz3/libcimbar`, `src/lib/cimb_translator/CimbEncoder.cpp`, and uses the project's existing embedded original bitmap assets and `TileFactory`. The implementation is a clean Java port of the mapping behavior; no C++ source code is included. libcimbar is licensed under MPL-2.0; see https://github.com/sz3/libcimbar/blob/master/LICENSE.
