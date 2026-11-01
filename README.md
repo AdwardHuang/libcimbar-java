@@ -367,3 +367,21 @@ BufferedImage frame = writer.image();
 - 独立 Java harness 验证标准 8×8 容量、12,400 个 packed cells、RS 输出长度 9,300 bytes，以及 Symbol/Color 两个 plane 分别 RS 解码后恢复原始 5,000 + 2,500 bytes，全部通过。
 - 新增 JUnit 测试源码覆盖标准容量、双 plane RS 回环、短输入补零和超容量拒绝；仅用本地 JUnit API stub 编译新增测试源码，未实际运行 JUnit。
 - 当前环境没有 Maven，未执行 `mvn clean test`。
+
+
+## 0.3.2：统一单帧编码入口
+
+新增 `encoder/CimbarEncoder`，将 `CimbarFrameDataEncoder`、`CimbEncoder` 和 `CimbFrameWriter` 串接为单帧编码 API：
+
+```java
+CimbFrameConfig config = CimbFrameConfig.standard8x8();
+CimbFrameMarkers markers = new CimbFrameMarkers(anchor, secondaryAnchor, horizontalGuide, verticalGuide);
+CimbarEncoder encoder = new CimbarEncoder(config, markers);
+BufferedImage frame = encoder.encodeFrame(fileBytes);
+```
+
+如需查看原始长度、补零量和 RS 中间数据，可调用 `encodeDetailed(byte[])`，返回 `CimbarEncoder.Result`。标准 8×8 配置每帧 12,400 个数据 cell，当前固定帧数据输入容量为 7,500 字节；短输入会补零，超出容量会抛出异常。
+
+**Marker 资源边界：** 本版本仍要求调用方传入四张原版 marker 图片。没有将合成图片伪装成原版资源，也没有声称已完成原版 PNG 的内嵌。`CimbFrameWriter` 的 marker 摆放坐标已对照当前上游 `CimbWriter.cpp`；原版资源的可靠提取与内嵌留待后续完成。
+
+**兼容性边界：** 该入口只完成单帧的 RS 双平面数据编排和图像绘制，不包含文件级 Wirehair Fountain、Zstd 压缩/文件头，也未用官方 libcimbar decoder 做端到端互通验证。

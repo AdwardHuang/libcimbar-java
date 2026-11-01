@@ -59,3 +59,9 @@ The `com.hrz.libcimbar.encoder.CimbEncoder` Java implementation follows the tile
 
 `com.hrz.libcimbar.encoder.CimbarFrameDataEncoder` is a Java-language implementation of the non-coupled `Encoder::encode_next()` data layout in `sz3/libcimbar/src/lib/encoder/Encoder.h`, using the project's Java Reed-Solomon stream implementation. The upstream libcimbar project is licensed under MPL-2.0. No upstream C++ source is included.
 Source: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h
+
+
+## Unified frame encoder (0.3.2)
+
+`com.hrz.libcimbar.encoder.CimbarEncoder` composes the Java data-plane encoder, tile encoder, and frame writer. Its frame layout follows the upstream `Encoder::encode_next()` and `CimbWriter.cpp` behavior; the caller-provided marker images are not bundled by this release.
+Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Encoder.h and https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbWriter.cpp
