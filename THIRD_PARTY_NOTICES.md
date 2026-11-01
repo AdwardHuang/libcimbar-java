@@ -16,3 +16,9 @@ This Java implementation is a clean-language port of the decoder logic; it does 
 
 `com.hrz.libcimbar.symbol.SymbolMatcher` is a Java-language adaptation of the symbol-candidate matching logic in `sz3/libcimbar/src/lib/cimb_translator/CimbDecoder.cpp` (`CimbDecoder::get_best_symbol` and `decode_symbol`), licensed under the Mozilla Public License 2.0 (MPL-2.0). The candidate iteration order is defined by `src/lib/image_hash/ahash_result.h`.
 Source: https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp
+
+
+## Reed-Solomon algorithm
+
+`com.hrz.libcimbar.ecc.ReedSolomonCodec` is a clean Java implementation of the GF(256) Reed-Solomon parameters and wrapper behavior used by `sz3/libcimbar`'s `ReedSolomon.h` and bundled `libcorrect` API. The implementation does not include or link the native libcorrect C source. Upstream project files are licensed under MPL-2.0; libcorrect carries its own license in the upstream repository.
+Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/ReedSolomon.h and https://github.com/sz3/libcimbar/tree/master/src/third_party_lib/libcorrect

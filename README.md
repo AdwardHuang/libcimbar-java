@@ -1,4 +1,4 @@
-# libcimbar-java 0.2.0-SNAPSHOT
+# libcimbar-java 0.2.1-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -49,8 +49,8 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 2. OpenCV `resize(INTER_LINEAR)` 的所有优化路径与像素级一致性。
 3. 原版 PNG 的像素级颜色/透明度边界核验，以及所有 symbol/color mode 的完整兼容验证。
 4. 四角锚点检测与透视变换尚未实现；当前 `CimbReader` 已实现已矫正图像上的符号网格读取、drift 跟踪和 FloodDecodePositions 调度。
-5. 自动锚点白色采样与 von Kries 色彩适应、基于 Fountain Header 的完整 CCM 求解、交织反向映射、Reed-Solomon 解码及完整帧协议。
-6. libcimbar 编码器和文件层 Wirehair/Zstd 协议。
+5. 自动锚点白色采样与 von Kries 色彩适应、基于 Fountain Header 的完整 CCM 求解，以及完整帧协议。
+6. libcimbar 文件层 Wirehair/Zstd 协议。
 
 因此，现阶段不要将它作为完整解码器接入 QOcr 的正式传输流程。当前颜色分类核心已移植，但尚未完成自动色彩校正；`FuzzyAHash` 已按原版 `ahash_result`、`bit_extractor` 和 `fuzzy_ahash(bitmatrix)` 的规则实现；合成网格测试验证了九个偏移位置与 FAST 顺序。`AverageHashOriginalVectorTest` 保留了原版测试向量；`OriginalBitmapAssetsTest` 进一步直接加载内嵌的真实 PNG，并对原版测试中的 8 个固定 Hash 值做了真实资源回归验证，同时检查 16 个 8×8 符号的最小两两 Hamming Distance 为 18。原版测试源文件：https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/test/averageHashTest.cpp。原版 `getTile` 的颜色和背景逻辑见：https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Common.cpp。当前已内置真实 bitmap，并通过固定 Hash 向量验证资源、`AverageHash` 和 `SymbolDictionary` 的基础输出；OpenCV 预处理的逐像素一致性仍需继续验证。
 
@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.1-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -151,3 +151,17 @@ mvn clean install
 - `CimbReader.readAll()` 与 `readDataBytes(...)`：提供从整帧图像到原始位流字节的便捷入口。
 
 注意：本版本完成的是图块字段合并、交织位置映射和位缓冲层；尚未移植 Reed-Solomon 解码、Fountain Metadata 解析或 OpenRQ/Wirehair 解码。交织参数（块数、分区数）需要由对应帧配置明确传入，不能擅自假定。
+
+
+## 0.2.1：Reed-Solomon 纠错
+
+本版本新增纯 Java RS(255) 实现，参数与 libcimbar 的 libcorrect 包装器一致：GF(256)、primitive polynomial `0x187`、first consecutive root `1`、generator root gap `1`。
+
+- `ecc/ReedSolomonCodec`：支持缩短 RS 码块、系统编码、Berlekamp-Massey 定位错误，以及 GF(256) 方程组求解错误幅值；最多纠正 `floor(parityBytes/2)` 个错误字节。
+- `ecc/ReedSolomonStream`：按原版 `reed_solomon_stream` 的固定块输入/输出语义封装，解码失败时输出全零 BadChunk。
+- 标准 8×8 配置：`eccBytes=30`、`eccBlockSize=155`，即每块 125 字节数据 + 30 字节校验。
+- 新增原版 libcorrect 的 15/155 固定编码向量测试，以及 30/155 标准配置的 15 字节纠错测试。
+
+兼容性说明：原版 `reed_solomon_streamTest.cpp` 的固定测试使用 `ecc=15, buffer_size=155`，其 140 字节输入和 15 字节校验向量已逐字节匹配；标准 8×8 参数则由 `GridConf.h` 指定为 30/155。本实现没有将这两组配置混为一谈。
+
+源码依据：[`ReedSolomon.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/ReedSolomon.h)、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)、[`correct.h`](https://github.com/sz3/libcimbar/blob/master/src/third_party_lib/libcorrect/include/correct.h)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`reed_solomon_streamTest.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/test/reed_solomon_streamTest.cpp)。
