@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.1.4-SNAPSHOT</version>
+  <version>0.1.6-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -95,3 +95,12 @@ mvn clean install
 - 新增 `match(FuzzyAHash, cooldown)` 入口，可直接接收 `FuzzyAHash` 的 FAST/ALL 结果；`match(BitMatrix, cellSize, cooldown)` 复现原版特殊 cooldown `0xFE` 时使用 ALL 九偏移的行为。
 
 源码依据：[`CimbDecoder.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp) 的 `get_best_symbol()` / `decode_symbol()`，以及 [`ahash_result.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/ahash_result.h) 的候选顺序。
+
+## 0.1.6 CellDrift / CellPositions / AdjacentCellFinder
+
+- `CellDrift`：移植原版九方向 drift 顺序、每轴 ±7 像素限幅，以及 `calculate_cooldown(previous, idx)` 规则。
+- `CellPositions`：按原版 top / middle / bottom 三段顺序生成图块坐标，支持原版 chunk-major interleave、游标遍历和 reset。
+- `AdjacentCellFinder`：按 anchor margin 布局查找 right / left / bottom / top 邻居，返回顺序与原版 `find()` 一致。
+- 新增几何算法单元测试，覆盖边界行、跨区域邻接、drift 限幅、cooldown 和交织顺序。
+
+源码依据：[`CellDrift.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellDrift.cpp)、[`CellPositions.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CellPositions.cpp)、[`AdjacentCellFinder.cpp/.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/AdjacentCellFinder.cpp)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。
