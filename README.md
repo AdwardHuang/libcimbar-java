@@ -233,3 +233,26 @@ mvn clean install
 **完成边界：** 0.2.6 只完成 Wirehair 的 GF(256) 算术层，尚未实现 Wirehair 的 PRNG、Peel Row 参数、矩阵构造、Peeling、Compression、Gaussian Elimination、编码器或解码器。`FountainDecoderBackend` 仍然需要后续真正的 Wirehair 后端实现。当前没有声称已具备 Wirehair 互通能力。
 
 源码依据：[`WirehairCodec.h`](https://github.com/catid/wirehair/blob/master/WirehairCodec.h) 中的 Heavy Submatrix / GF(256) 说明；Wirehair 上游 README 对编码/解码 API 生命周期的说明：[`README.md`](https://github.com/catid/wirehair/blob/master/README.md)。
+
+## 0.2.7：Wirehair PCG 与 Peel/Mix 行列生成
+
+本版本在 0.2.6 的 GF(256) 算术层之上，移植 Wirehair 稀疏矩阵前端的确定性行生成基础：
+
+- `PCGRandom`：Wirehair `PCGRandom::Seed/Next` 的 64-bit LCG + PCG XSH-RR 32-bit 输出；Java `long` 溢出按 C++ `uint64_t` 模 2^64 行为处理。
+- `PeelRowParameters`：原版 64 项 `kPeelCountDistribution`、weight-1 的 1/128 概率门限、`GeneratePeelRowWeight()` 和 `PeelRowParameters::Initialize()`。
+- `PeelRowIterator`：原版 Weyl 列迭代与非素数列数时的回绕修正。
+- `RowMixIterator`：原版 M 矩阵每行固定三个列索引的生成。
+
+**当前边界：** 本版本只生成 P/M 行的参数与列索引；尚未实现 Wirehair 的完整编码矩阵 P/M/D/J/H、dense seed 表、Peeling solver、Compression、Gaussian Elimination、Substitution，以及 encoder/decoder。因此目前不能宣称与 Wirehair 编解码互通。
+
+### 0.2.7 验证
+
+- 主源码使用 `javac --release 17` 编译通过。
+- PCG 使用标准参考序列校验通过。
+- Peel weight 边界及 10,000 组确定性行参数/列唯一性独立 harness 校验通过。
+- JUnit 测试源码已添加，但当前环境未安装 Maven，未执行 `mvn clean test`。
+
+### 0.2.7 原版算法交叉核对补充
+
+- 使用独立 C++ 参考程序按 Wirehair `PCGRandom`、`GeneratePeelRowWeight` 和 `PeelRowParameters::Initialize` 计算固定输入 `row_seed=0x12345678, p_seed=0x10203040, N=257, mix_count=31`，得到 `PeelRowParameters(2, 240, 250, 25, 26)`；Java 输出完全一致。
+- 另对 N=2..2048 的 614,100 组行参数进行列索引范围、无重复和数量检查，全部通过。
