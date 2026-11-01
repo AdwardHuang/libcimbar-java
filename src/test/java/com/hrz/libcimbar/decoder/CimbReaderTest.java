@@ -1,6 +1,7 @@
 package com.hrz.libcimbar.decoder;
 
 import com.hrz.libcimbar.geometry.CellPositions;
+import com.hrz.libcimbar.color.FountainColorCalibrator;
 import com.hrz.libcimbar.symbol.TileFactory;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,36 @@ class CimbReaderTest {
         }
         assertEquals(reader.totalCells(), reads);
         assertNull(reader.readNext());
+    }
+
+    @Test
+    void ccmCalibrationSamplesOriginalUnshiftedCellInnerArea() {
+        CimbFrameConfig config = CimbFrameConfig.of(60, 40, 5, 8, 8, 6, 4, 4, 0, 0, 2, 4, true, false);
+        BufferedImage image = new BufferedImage(160, 120, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(java.awt.Color.BLACK);
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        graphics.setColor(java.awt.Color.WHITE);
+        graphics.fillRect(68, 68, 4, 4);
+        graphics.fillRect(68, 48, 4, 4);
+        graphics.fillRect(48, 68, 4, 4);
+        List<CellPositions.Coordinate> coordinates = CellPositions.compute(8, 8, 6, 4, 44, 0, 0, 0, 1);
+        for (int i = 0; i < coordinates.size(); i++) {
+            CellPositions.Coordinate coordinate = coordinates.get(i);
+            BufferedImage tile = TileFactory.getTile(2, i % 4, true, 4, i % 4, 1);
+            graphics.drawImage(tile, coordinate.x(), coordinate.y(), null);
+        }
+        graphics.setColor(new java.awt.Color(0, 255, 0));
+        graphics.fillRect(45, 45, 3, 3);
+        graphics.dispose();
+
+        CimbDecoder decoder = new CimbDecoder(2, 4, true, 5);
+        CimbReader reader = new CimbReader(image, decoder, config);
+        FountainColorCalibrator.Rgb measured = reader.sampleColorRgbAtCellIndex(0);
+        int[] expected = TileFactory.getColorRgb(0, 4, 1);
+        assertEquals(expected[0], (int) measured.red());
+        assertEquals(expected[1], (int) measured.green());
+        assertEquals(expected[2], (int) measured.blue());
     }
 
     @Test

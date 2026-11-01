@@ -118,6 +118,17 @@ public final class CimbReader {
         return decoder.avgColor(image, position.x(), position.y(), config.cellSize(), config.cellSize());
     }
 
+    /**
+     * Samples a base grid cell for CCM calibration. libcimbar's init_ccm uses the original
+     * CellPositions list (not the drift-adjusted positions returned by read()).
+     */
+    public FountainColorCalibrator.Rgb sampleColorRgbAtCellIndex(int cellIndex) {
+        if (cellIndex < 0 || cellIndex >= positions.size()) { throw new IndexOutOfBoundsException("cell index: " + cellIndex); }
+        CellPositions.Coordinate coordinate = positions.positions().get(cellIndex);
+        int[] rgb = decoder.meanRgb(image, coordinate.x() + 1, coordinate.y() + 1, config.cellSize() - 2, config.cellSize() - 2);
+        return new FountainColorCalibrator.Rgb(rgb[0], rgb[1], rgb[2]);
+    }
+
     /** Mirrors CimbReader::update_metadata; metadata is advanced to the next broadcast block id. */
     public void updateMetadata(byte[] bytes, int chunkSize) {
         if (bytes == null) { throw new IllegalArgumentException("metadata bytes cannot be null"); }
@@ -129,6 +140,8 @@ public final class CimbReader {
 
     public FountainMetadata fountainMetadata() { return fountainMetadata; }
     public int colorMode() { return colorMode; }
+    public int numColors() { return config.numColors(); }
+    CimbDecoder decoder() { return decoder; }
 
     /** Compatibility API: reads symbol and color together. New frame decoding should use the two-pass API. */
     public SymbolRead readNext() {

@@ -68,6 +68,24 @@ public final class CimbDecoder {
         return TileFactory.getColorRgb(colorIndex, numColors, requestedColorMode);
     }
 
+    /** Returns the mean RGB of an exact rectangular sample without applying the tile-border crop. */
+    public int[] meanRgb(BufferedImage image, int x, int y, int width, int height) {
+        if (image == null || width <= 0 || height <= 0 || x < 0 || y < 0 || x + width > image.getWidth() || y + height > image.getHeight()) {
+            throw new IllegalArgumentException("RGB sample must be a positive in-bounds rectangle");
+        }
+        long red = 0, green = 0, blue = 0;
+        for (int py = y; py < y + height; py++) {
+            for (int px = x; px < x + width; px++) {
+                int rgb = image.getRGB(px, py);
+                red += (rgb >>> 16) & 0xff;
+                green += (rgb >>> 8) & 0xff;
+                blue += rgb & 0xff;
+            }
+        }
+        long count = (long) width * height;
+        return new int[]{(int) (red / count), (int) (green / count), (int) (blue / count)};
+    }
+
     /** Classifies a measured RGB value using libcimbar's relative-color distance. */
     public int getBestColor(float red, float green, float blue) {
         return getBestColor(red, green, blue, colorMode);
@@ -116,6 +134,16 @@ public final class CimbDecoder {
     }
 
     /** Sets the per-thread 3x3 RGB correction matrix, matching color_correction::update. */
+    public boolean hasColorCorrection() { return colorCorrection.get() != null; }
+
+    public float[][] colorCorrectionMatrix() {
+        float[][] matrix = colorCorrection.get();
+        if (matrix == null) { return null; }
+        float[][] copy = new float[3][3];
+        for (int row = 0; row < 3; row++) { System.arraycopy(matrix[row], 0, copy[row], 0, 3); }
+        return copy;
+    }
+
     public void updateColorCorrection(float[][] matrix) {
         if (matrix == null) { colorCorrection.remove(); return; }
         if (matrix.length != 3 || matrix[0].length != 3 || matrix[1].length != 3 || matrix[2].length != 3) {

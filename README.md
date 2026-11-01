@@ -1,4 +1,4 @@
-# libcimbar-java 0.2.3-SNAPSHOT
+# libcimbar-java 0.2.4-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -177,21 +177,31 @@ mvn clean install
 4. 然后按原始 cell index 顺序调用 `CimbReader.readColorAt()`，将 color bits 写入另一块独立的 `BitBuffer`，并独立执行 RS 解码。
 5. 最终输出顺序为 `symbolData || colorData`，与原版两次 `symbolBuff.flush(rss)`、`colorBuff.flush(rss)` 写入同一输出流的顺序一致。
 
-`CimbReader.readNext()` / `readAll()` 保留为兼容接口，但它们仍会即时读取颜色；需要原版两遍语义时应使用 `FrameDataDecoder.decode(reader, callback)`。当前回调只提供 symbol plane 解码数据，不代表 Fountain Metadata、CCM 求解或 Fountain 文件层已经完成。
+`CimbReader.readNext()` / `readAll()` 保留为兼容接口，但它们仍会即时读取颜色；需要原版两遍语义时使用 `FrameDataDecoder.decode(reader, callback)`。Fountain 帧则使用 `decodeFountain(reader, chunkSize, fountainBlocks, enableCcm, callback)`，由解码器在 symbol plane RS 解码后自动提取六字节 Metadata、计算 Header 颜色样本、更新 CCM，再开始 color plane 分类。
 
 新增测试用原版 30/155 RS 块构造独立 symbol/color 编码平面，验证反交织位偏移、两次 RS 解码、输出拼接顺序，以及颜色读取必须发生在 symbol 回调之后。
 
 源码依据：[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)、[`CimbReader.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`bitbuffer.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/bit_file/bitbuffer.h)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)。
 
-## 0.2.3：Fountain Metadata 与颜色校正初始化
+## 0.2.3：Fountain Metadata 与颜色校正基础
 
 本版本依据原版 `FountainMetadata.h` 与 `CimbReader.cpp` 新增：
 
-- `fountain/FountainMetadata`：六字节 Fountain Header 的编码与解析。前四字节按原版主机小端 ID 解释；文件长度为 25 bit（最高位复用首字节 bit7）；block ID 为 16 bit 大端。支持广播 block ID 递增，并跳过不完整文件尾块对应的 radioactive block。
-- `color/FountainColorCalibrator.headerSamplePositions`：按原版容量、fountain block 数、交织参数和 metadata 长度计算 Header 颜色采样位置，并返回原始 cell index 与预期颜色索引。
-- `FountainColorCalibrator.calibrate`：按颜色类别聚合实测 RGB 均值，追加白点样本，执行 3×3 Moore-Penrose 最小二乘 CCM；纯 Java Jacobi 特征分解实现伪逆，不依赖 OpenCV/native 库。有效颜色类别不足 4 类时不启用 CCM。
-- `CimbReader.updateMetadata`、`fountainMetadata`、`sampleColorRgbAt` 和 `sampleWhitePoint`：提供与原版 reader 对应的 metadata 状态更新、内部 RGB 采样，以及暗色/浅色模式的 4×4 白色锚点采样（暗色模式取三个锚点，各通道取最大均值）。
+- `fountain/FountainMetadata`：六字节 Fountain Header 的编码与解析。前四字节按原版小端 ID 解释；文件长度为 25 bit（最高位复用首字节 bit7）；block ID 为 16 bit 大端。支持广播 block ID 递增，并跳过不完整文件尾块对应的 radioactive block。
+- `color/FountainColorCalibrator`：按原版容量、fountain block 数、交织参数和 metadata 长度计算 Header 颜色采样位置；按颜色类别聚合 RGB 均值，追加白点样本，执行 3×3 Moore-Penrose 最小二乘 CCM。
+- `CimbReader`：提供 metadata 状态更新、cell RGB 采样，以及暗色/浅色模式白色锚点采样。
 
-注意：本版本实现了 Header 数据结构、采样位置规划和 CCM 数值求解；尚未把真实帧中的 Fountain Header 自动定位/提取与 CCM 自动应用完整串接到 `FrameDataDecoder`。调用方仍需从已恢复的数据块提供 6 字节 metadata，并把对应 cell 的内区 RGB 均值交给校准器。
+## 0.2.4：Fountain CCM 接入双平面解码
 
-源码依据：[`FountainMetadata.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/fountain/FountainMetadata.h)、[`CimbReader.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`color_correction.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/chromatic_adaptation/color_correction.h)、[`adaptation_transform.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/chromatic_adaptation/adaptation_transform.h)。
+本版本将 0.2.3 的 Metadata 与 CCM 算法接入真实双平面流程：
+
+1. `FrameDataDecoder.decodeFountain(...)` 先读取完整 Symbol 平面，并独立执行 RS 解码。
+2. 使用 Symbol 平面解码后的前六字节更新 `FountainMetadata`，计算 radioactive block ID。
+3. 按原版 `CimbReader::init_ccm()` 的容量、Header 间隔、交织坐标和 block ID 递增规则，生成颜色样本位置。
+4. CCM 采样使用 `_positions.positions()` 对应的原始 cell 坐标（不使用 drift 修正坐标），采样 cell 内区 RGB；白点采样使用原版锚点区域。
+5. 至少获得四种有效颜色类别时，计算 Moore-Penrose CCM 并写入 `CimbDecoder` 的线程局部校正矩阵。
+6. 然后才开始读取 Color 平面，执行独立 RS 解码。
+
+`decodeFountain` 参数由调用方提供 `chunkSize`、`fountainBlocks` 和 `enableCcm`。这与原版 `Config::fountain_chunk_size()`、`fountain_chunks_per_frame()` 的配置职责一致；当前工程尚未实现完整 Fountain 解码 Sink / Wirehair 数据重组，因此不会把这部分伪装成已完成。
+
+新增测试覆盖原始 cell 坐标采样、重复 Header 区间的 block ID 递增，以及 CCM 在 Color 平面读取前安装。源码依据：[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`CimbDecoder.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)。

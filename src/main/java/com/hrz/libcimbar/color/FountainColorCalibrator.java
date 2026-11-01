@@ -26,6 +26,12 @@ public final class FountainColorCalibrator {
      */
     public static List<SamplePosition> headerSamplePositions(int totalCells, int symbolBits, int colorBits,
             int interleaveBlocks, int interleavePartitions, int fountainBlocks, FountainMetadata metadata) {
+        return headerSamplePositions(totalCells, symbolBits, colorBits, interleaveBlocks, interleavePartitions, fountainBlocks, metadata, -1);
+    }
+
+    /** Same as the original overload, but advances the metadata block id between repeated header regions. */
+    public static List<SamplePosition> headerSamplePositions(int totalCells, int symbolBits, int colorBits,
+            int interleaveBlocks, int interleavePartitions, int fountainBlocks, FountainMetadata metadata, int radioactiveBlockId) {
         if (totalCells <= 0 || symbolBits < 1 || colorBits < 1 || colorBits > 8 || fountainBlocks <= 0 || metadata == null) {
             throw new IllegalArgumentException("Invalid header sampling parameters");
         }
@@ -36,13 +42,15 @@ public final class FountainColorCalibrator {
         int headerLength = FountainMetadata.SIZE * 8 / colorBits;
         if (interval <= 0) { throw new IllegalArgumentException("Header interval is zero"); }
         int[] interleaved = Interleave.interleaveIndices(totalCells, interleaveBlocks, interleavePartitions);
-        byte[] header = metadata.bytes();
+        FountainMetadata blockMetadata = metadata;
         List<SamplePosition> result = new ArrayList<>();
         for (int block = 0; block < end; block += interval) {
+            byte[] header = blockMetadata.bytes();
             for (int index = block; index < Math.min(block + headerLength, end); index++) {
-                int expected = readBits(header, index - block, colorBits);
+                int expected = readBits(header, (index - block) * colorBits, colorBits);
                 result.add(new SamplePosition(interleaved[index], expected));
             }
+            blockMetadata = blockMetadata.incrementBlockId(radioactiveBlockId);
         }
         return List.copyOf(result);
     }

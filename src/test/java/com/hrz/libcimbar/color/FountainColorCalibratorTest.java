@@ -16,6 +16,16 @@ class FountainColorCalibratorTest {
         assertTrue(positions.stream().allMatch(p -> p.expectedColor() >= 0 && p.expectedColor() < 4));
     }
 
+    @Test void advancesMetadataBlockIdForEachRepeatedHeaderRegion() {
+        FountainMetadata metadata = FountainMetadata.of(1, 0x12345, 7);
+        List<FountainColorCalibrator.SamplePosition> positions = FountainColorCalibrator.headerSamplePositions(
+            96, 4, 2, 0, 1, 8, metadata, 10);
+        assertEquals(72, positions.size());
+        assertEquals(3, positions.get(23).expectedColor());
+        assertEquals(0, positions.get(47).expectedColor());
+        assertEquals(1, positions.get(71).expectedColor());
+    }
+
     @Test void fitsKnownRgbTransformAndRequiresFourColorClasses() {
         List<FountainColorCalibrator.SamplePosition> positions = List.of(
             new FountainColorCalibrator.SamplePosition(0, 0), new FountainColorCalibrator.SamplePosition(1, 1),

@@ -1,6 +1,11 @@
 package com.hrz.libcimbar.decoder;
 
 import com.hrz.libcimbar.ecc.ReedSolomonStream;
+import com.hrz.libcimbar.color.FountainColorCalibrator;
+import com.hrz.libcimbar.fountain.FountainMetadata;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import com.hrz.libcimbar.stream.BitBuffer;
 import com.hrz.libcimbar.stream.Interleave;
 import java.io.ByteArrayOutputStream;
@@ -73,6 +78,33 @@ public final class FrameDataDecoder {
             CellSymbol cell = cells[index];
             return reader.readColorAt(new CimbReader.SymbolPositionRead(cell.index(), cell.symbol(), cell.x(), cell.y(), 0, 0, 0));
         }, afterSymbolDecode);
+    }
+
+    /**
+     * Fountain decode path matching Decoder::do_decode + CimbReader::init_ccm in libcimbar.
+     * The six-byte metadata is read from the RS-decoded symbol plane; CCM is fitted before
+     * any color cell is classified. Set enableCcm=false to retain the original uncorrected path.
+     */
+    public Result decodeFountain(CimbReader reader, int chunkSize, int fountainBlocks, boolean enableCcm,
+                                 Consumer<byte[]> afterSymbolDecode) {
+        if (reader == null) { throw new IllegalArgumentException("reader cannot be null"); }
+        if (chunkSize <= 0 || fountainBlocks <= 0) { throw new IllegalArgumentException("chunkSize and fountainBlocks must be positive"); }
+        return decode(reader, symbolData -> {
+            reader.updateMetadata(symbolData, chunkSize);
+            FountainMetadata metadata = reader.fountainMetadata();
+            if (enableCcm && colorBits > 0 && metadata != null && metadata.id() != 0) {
+                List<FountainColorCalibrator.SamplePosition> positions = FountainColorCalibrator.headerSamplePositions(
+                    reader.totalCells(), symbolBits, colorBits, interleaveBlocks, interleavePartitions, fountainBlocks, metadata,
+                    metadata.radioactiveBlockId(chunkSize));
+                Map<Integer, FountainColorCalibrator.Rgb> measured = new LinkedHashMap<>();
+                for (FountainColorCalibrator.SamplePosition position : positions) {
+                    measured.put(position.cellIndex(), reader.sampleColorRgbAtCellIndex(position.cellIndex()));
+                }
+                FountainColorCalibrator.calibrateAndApply(reader.decoder(), positions, measured, reader.numColors(),
+                    reader.colorMode(), reader.sampleWhitePoint());
+            }
+            if (afterSymbolDecode != null) { afterSymbolDecode.accept(symbolData.clone()); }
+        });
     }
 
     /** Deterministic entry point for testing and callers that already have symbol positions. */
