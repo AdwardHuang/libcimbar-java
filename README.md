@@ -256,3 +256,24 @@ mvn clean install
 
 - 使用独立 C++ 参考程序按 Wirehair `PCGRandom`、`GeneratePeelRowWeight` 和 `PeelRowParameters::Initialize` 计算固定输入 `row_seed=0x12345678, p_seed=0x10203040, N=257, mix_count=31`，得到 `PeelRowParameters(2, 240, 250, 25, 26)`；Java 输出完全一致。
 - 另对 N=2..2048 的 614,100 组行参数进行列索引范围、无重复和数量检查，全部通过。
+
+## 0.2.8：面向应用的解码 API
+
+新增 `com.hrz.libcimbar.api`：
+
+- `CimbarDecoderConfig`：统一帧几何、颜色模式、RS 和 interleave 参数。
+- `CimbarDecoder`：封装 `CimbDecoder`、`CimbReader` 和 `FrameDataDecoder`。
+- `CimbarFrameResult`：以防御性复制方式返回 symbol plane、color plane 和合并数据。
+- 支持普通单帧解码、带 CCM 的 Fountain 帧解码，以及提交到 `FountainDecoderSink`。
+
+示例：
+
+```java
+CimbFrameConfig frame = CimbFrameConfig.standard8x8();
+CimbarDecoder decoder = new CimbarDecoder(CimbarDecoderConfig.standard8x8(frame));
+BufferedImage image = ImageIO.read(new File("frame.png"));
+CimbarFrameResult result = decoder.decodeFrame(image);
+byte[] payload = result.data();
+```
+
+边界说明：该 API 输入必须是已经定位、裁切并几何归一化的 CIMBAR 帧；本版本没有实现任意照片中的码区定位/透视矫正，也没有实现帧编码器或完整 Wirehair backend。`standard8x8` 仅提供既有 FrameDataDecoder 的参数组合，不代表所有输入帧尺寸均已验证。
