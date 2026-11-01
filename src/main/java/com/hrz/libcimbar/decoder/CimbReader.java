@@ -15,6 +15,7 @@ import java.awt.image.BufferedImage;
 /** Symbol-grid reader ported from the symbol path of libcimbar's CimbReader. */
 public final class CimbReader {
     public record PositionData(int index, int x, int y) { }
+    public record SymbolPositionRead(int index, int symbol, int x, int y, int driftIndex, int distance, int cooldown) { }
     public record SymbolRead(int index, int symbol, int color, int x, int y, int driftIndex, int distance, int cooldown) { }
 
     private final BufferedImage image;
@@ -47,8 +48,8 @@ public final class CimbReader {
             config.offset() + gridPadding, config.markerSizeX(), config.markerSizeY());
     }
 
-    /** Reads the next symbol in confidence-prioritized flood order; returns null when complete. */
-    public SymbolRead readNext() {
+    /** Reads only the symbol plane; color sampling is deliberately deferred until after symbol ECC. */
+    public SymbolPositionRead readSymbolNext() {
         if (positions.done()) { return null; }
         FloodDecodePositions.DecodePosition scheduled = positions.next();
         if (scheduled.cooldown() == FloodDecodePositions.EMPTY_COOLDOWN) { return null; }
@@ -63,12 +64,25 @@ public final class CimbReader {
         CellDrift updatedDrift = scheduled.drift();
         updatedDrift.updateDrift(dx, dy);
         int nextCooldown = CellDrift.calculateCooldown(scheduled.cooldown(), match.drift());
-        int color = decoder.decodeColor(image, x + dx, y + dy, config.cellSize(), config.cellSize(), colorMode);
         positions.update(scheduled.index(), updatedDrift, match.distance(), nextCooldown);
-        return new SymbolRead(scheduled.index(), match.symbol(), color, x + dx, y + dy, match.drift(), match.distance(), nextCooldown);
+        return new SymbolPositionRead(scheduled.index(), match.symbol(), x + dx, y + dy, match.drift(), match.distance(), nextCooldown);
     }
 
-    /** Reads all remaining cells in flood order. */
+    /** Samples the color plane at a previously decoded symbol position. */
+    public int readColorAt(SymbolPositionRead position) {
+        if (position == null) { throw new IllegalArgumentException("position cannot be null"); }
+        return decoder.decodeColor(image, position.x(), position.y(), config.cellSize(), config.cellSize(), colorMode);
+    }
+
+    /** Compatibility API: reads symbol and color together. New frame decoding should use the two-pass API. */
+    public SymbolRead readNext() {
+        SymbolPositionRead symbol = readSymbolNext();
+        if (symbol == null) { return null; }
+        int color = readColorAt(symbol);
+        return new SymbolRead(symbol.index(), symbol.symbol(), color, symbol.x(), symbol.y(), symbol.driftIndex(), symbol.distance(), symbol.cooldown());
+    }
+
+    /** Reads all remaining cells in flood order using the compatibility symbol+color path. */
     public List<SymbolRead> readAll() {
         List<SymbolRead> result = new ArrayList<>();
         while (!done()) {
@@ -79,7 +93,7 @@ public final class CimbReader {
         return List.copyOf(result);
     }
 
-    /** Reads the complete frame and assembles symbol/color bits in original interleaved stream order. */
+    /** Compatibility helper for the older coupled symbol+color word layout; non-legacy frames should use FrameDataDecoder. */
     public byte[] readDataBytes(int interleaveBlocks, int interleavePartitions) {
         List<SymbolRead> reads = readAll();
         int colorBits = Integer.numberOfTrailingZeros(config.numColors());

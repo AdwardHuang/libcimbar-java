@@ -67,6 +67,14 @@ public final class BitBuffer {
     }
 
     public byte[] toByteArray() { return Arrays.copyOf(buffer, (bitLength + 7) >>> 3); }
+
+    /** Returns a fixed-size snapshot, zero-padding unwritten trailing bytes like libcimbar bitbuffer::flush. */
+    public byte[] toByteArray(int fixedLengthBytes) {
+        if (fixedLengthBytes < 0 || fixedLengthBytes < byteLength()) {
+            throw new IllegalArgumentException("fixedLengthBytes is smaller than written data");
+        }
+        return Arrays.copyOf(buffer, fixedLengthBytes);
+    }
     public int bitLength() { return bitLength; }
     public int byteLength() { return (bitLength + 7) >>> 3; }
 

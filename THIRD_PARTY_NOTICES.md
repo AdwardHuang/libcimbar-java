@@ -22,3 +22,9 @@ Source: https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Cim
 
 `com.hrz.libcimbar.ecc.ReedSolomonCodec` is a clean Java implementation of the GF(256) Reed-Solomon parameters and wrapper behavior used by `sz3/libcimbar`'s `ReedSolomon.h` and bundled `libcorrect` API. The implementation does not include or link the native libcorrect C source. Upstream project files are licensed under MPL-2.0; libcorrect carries its own license in the upstream repository.
 Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/ReedSolomon.h and https://github.com/sz3/libcimbar/tree/master/src/third_party_lib/libcorrect
+
+
+## Decoder 双平面恢复流程
+
+`com.hrz.libcimbar.decoder.FrameDataDecoder` 与 `CimbReader` 的两阶段读取结构，是对 `sz3/libcimbar` `Decoder.h`、`CimbReader.h/.cpp`、`bit_file/bitbuffer.h` 和 `Interleave.h` 的 Java 语言移植。上游项目相关代码采用 MPL-2.0。
+Sources: https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h and https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp

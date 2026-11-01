@@ -1,4 +1,4 @@
-# libcimbar-java 0.2.1-SNAPSHOT
+# libcimbar-java 0.2.2-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -62,7 +62,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 <dependency>
   <groupId>com.hrz</groupId>
   <artifactId>libcimbar-java</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.2.2-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -147,8 +147,8 @@ mvn clean install
 
 - `stream/Interleave`：按原版 `Interleave.h` 实现 `interleaveIndices`、逆映射、列表交织和反交织。
 - `stream/BitBuffer`：按原版 `bit_file/bitbuffer.h` 实现 MSB-first 位读写、跨字节读写和显式偏移写入。
-- `stream/CellDataAssembler`：将每个图块的 `symbol` 作为低位、`color` 作为高位，组成 `(color << symbolBits) | symbol`，再按交织位置恢复数据流顺序。
-- `CimbReader.readAll()` 与 `readDataBytes(...)`：提供从整帧图像到原始位流字节的便捷入口。
+- `stream/CellDataAssembler`：旧版 coupled 模式工具，将每个图块的 `symbol` 与 `color` 合并成单个 cell word；它不是现代 non-legacy decoder 的通用恢复流程。
+- `CimbReader.readAll()` 与 `readDataBytes(...)`：提供旧版 coupled symbol+color 位流的兼容入口。非 legacy 标准帧请使用 0.2.2 新增的 `FrameDataDecoder.standard8x8()` 或自定义 `FrameDataDecoder` 双平面流程。
 
 注意：本版本完成的是图块字段合并、交织位置映射和位缓冲层；尚未移植 Reed-Solomon 解码、Fountain Metadata 解析或 OpenRQ/Wirehair 解码。交织参数（块数、分区数）需要由对应帧配置明确传入，不能擅自假定。
 
@@ -165,3 +165,20 @@ mvn clean install
 兼容性说明：原版 `reed_solomon_streamTest.cpp` 的固定测试使用 `ecc=15, buffer_size=155`，其 140 字节输入和 15 字节校验向量已逐字节匹配；标准 8×8 参数则由 `GridConf.h` 指定为 30/155。本实现没有将这两组配置混为一谈。
 
 源码依据：[`ReedSolomon.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/ReedSolomon.h)、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)、[`correct.h`](https://github.com/sz3/libcimbar/blob/master/src/third_party_lib/libcorrect/include/correct.h)、[`GridConf.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/GridConf.h)、[`reed_solomon_streamTest.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/test/reed_solomon_streamTest.cpp)。
+
+
+## 0.2.2：Symbol / Color 双平面数据恢复
+
+本版本将原版 `Decoder::do_decode()` 的非 legacy 两遍流程接入 Java：
+
+1. `CimbReader.readSymbolNext()` 只读取符号值并保存索引、坐标和 drift 结果，不提前读取颜色。
+2. `FrameDataDecoder` 按 `Interleave::interleave_reverse()` 将 symbol bits 写入独立的 `BitBuffer`，按固定 plane 容量补齐后执行独立 RS 解码。
+3. Symbol plane 解码完成后调用可选 `Consumer<byte[]>` 回调，供后续 Fountain Header / 颜色校正逻辑初始化。
+4. 然后按原始 cell index 顺序调用 `CimbReader.readColorAt()`，将 color bits 写入另一块独立的 `BitBuffer`，并独立执行 RS 解码。
+5. 最终输出顺序为 `symbolData || colorData`，与原版两次 `symbolBuff.flush(rss)`、`colorBuff.flush(rss)` 写入同一输出流的顺序一致。
+
+`CimbReader.readNext()` / `readAll()` 保留为兼容接口，但它们仍会即时读取颜色；需要原版两遍语义时应使用 `FrameDataDecoder.decode(reader, callback)`。当前回调只提供 symbol plane 解码数据，不代表 Fountain Metadata、CCM 求解或 Fountain 文件层已经完成。
+
+新增测试用原版 30/155 RS 块构造独立 symbol/color 编码平面，验证反交织位偏移、两次 RS 解码、输出拼接顺序，以及颜色读取必须发生在 symbol 回调之后。
+
+源码依据：[`Decoder.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/Decoder.h)、[`CimbReader.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.h)、[`CimbReader.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbReader.cpp)、[`bitbuffer.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/bit_file/bitbuffer.h)、[`Interleave.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/Interleave.h)、[`reed_solomon_stream.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/encoder/reed_solomon_stream.h)。

@@ -28,6 +28,14 @@ class BitBufferTest {
     }
 
     @Test
+    void fixedSizeSnapshotZeroPadsLikeOriginalFlushBuffer() {
+        BitBuffer buffer = new BitBuffer(2);
+        buffer.write(0b101, 3);
+        assertArrayEquals(new byte[]{(byte) 0b10100000, 0}, buffer.toByteArray(2));
+        assertThrows(IllegalArgumentException.class, () -> buffer.toByteArray(0));
+    }
+
+    @Test
     void supportsSixtyFourBitWrites() {
         BitBuffer buffer = new BitBuffer();
         long value = 0xFEDCBA9876543210L;
