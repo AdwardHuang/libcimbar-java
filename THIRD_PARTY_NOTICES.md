@@ -11,3 +11,8 @@ Source: https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/bit
 Source: https://github.com/sz3/libcimbar/blob/master/src/third_party_lib/base91/base.hpp
 
 This Java implementation is a clean-language port of the decoder logic; it does not include the upstream C++ header.
+
+## Symbol matching algorithm
+
+`com.hrz.libcimbar.symbol.SymbolMatcher` is a Java-language adaptation of the symbol-candidate matching logic in `sz3/libcimbar/src/lib/cimb_translator/CimbDecoder.cpp` (`CimbDecoder::get_best_symbol` and `decode_symbol`), licensed under the Mozilla Public License 2.0 (MPL-2.0). The candidate iteration order is defined by `src/lib/image_hash/ahash_result.h`.
+Source: https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp

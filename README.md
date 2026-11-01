@@ -1,4 +1,4 @@
-# libcimbar-java 0.1.4-SNAPSHOT
+# libcimbar-java 0.1.5-SNAPSHOT
 
 一个面向 Java 17 的纯 Java Maven 工程，整理目前已讨论的 libcimbar 图像识别基础模块。
 
@@ -33,7 +33,7 @@ mvn exec:java -Dexec.args="D:/images/input.png"
 - `OriginalBitmapAssets`：从原版 `bitmaps.h` 内嵌数据恢复 20 张 PNG（4 张 5×5、16 张 8×8），无需手工下载 PNG。
 - `TileFactory`：优先读取外部 classpath PNG；缺失时自动使用内嵌原版 PNG，并按原版颜色/背景规则着色。
 - `SymbolDictionary`：生成符号 Hash 字典。
-- `SymbolMatcher`：按候选顺序进行汉明距离匹配。
+- `SymbolMatcher`：按 libcimbar `CimbDecoder::get_best_symbol()` 的中心/边缘/角点顺序进行贪心汉明距离匹配，支持 FAST/ALL、cooldown、BitMatrix 入口和精确匹配提前返回。
 
 ## 原版 bitmap 资源
 
@@ -84,3 +84,14 @@ mvn clean install
 - 移植原版 rlyeh Base91 变体（注意它不是标准 basE91 字母表）。
 - `TileFactory` 在没有外部 PNG 时自动使用内嵌资源。
 - 新增真实资源测试：20 张 PNG 均可解码；5×5、8×8 原版固定 Hash 值匹配；16 个 8×8 符号 Hash 均唯一，最小两两 Hamming Distance 为 18。
+
+
+## 0.1.5 原版符号匹配器移植
+
+- `SymbolMatcher` 按原版 `CimbDecoder::get_best_symbol()` 逐项移植：遍历 `ahash_result` 的原始顺序（中心 4、边 5/7/3/1、角 8/0/2/6），每个偏移依次遍历符号字典。
+- Hamming Distance 使用 `Long.bitCount(candidateHash ^ tileHash)`；仅在距离严格变小时更新结果，因此平局保留先遇到的候选和字典符号。距离为 0 时立即返回。
+- cooldown 与原版一致：跳过 drift index 等于 cooldown 的候选；cooldown 为 4 时改为 `0xFF`，确保中心候选不会被跳过。
+- 原版实现没有设置最大距离门限，也没有依据次佳距离拒绝歧义结果；本版本不擅自添加这些规则。
+- 新增 `match(FuzzyAHash, cooldown)` 入口，可直接接收 `FuzzyAHash` 的 FAST/ALL 结果；`match(BitMatrix, cellSize, cooldown)` 复现原版特殊 cooldown `0xFE` 时使用 ALL 九偏移的行为。
+
+源码依据：[`CimbDecoder.cpp`](https://github.com/sz3/libcimbar/blob/master/src/lib/cimb_translator/CimbDecoder.cpp) 的 `get_best_symbol()` / `decode_symbol()`，以及 [`ahash_result.h`](https://github.com/sz3/libcimbar/blob/master/src/lib/image_hash/ahash_result.h) 的候选顺序。

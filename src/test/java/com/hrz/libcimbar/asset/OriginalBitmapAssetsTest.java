@@ -73,12 +73,10 @@ class OriginalBitmapAssetsTest {
     void tileFactoryUsesOriginalAssetsWithoutExternalPngFiles() {
         var light = TileFactory.getTile(2, 0, false, 4, 0, 1);
         var dark = TileFactory.getTile(2, 0, true, 4, 0, 1);
-
         assertEquals(5, light.getWidth());
         assertEquals(5, light.getHeight());
-        assertEquals(light.getHeight(), dark.getHeight());
         assertEquals(light.getWidth(), dark.getWidth());
-
+        assertEquals(light.getHeight(), dark.getHeight());
         boolean foundDifferentPixel = false;
         for (int y = 0; y < light.getHeight(); y++) {
             for (int x = 0; x < light.getWidth(); x++) {
@@ -91,7 +89,6 @@ class OriginalBitmapAssetsTest {
                 break;
             }
         }
-
         assertTrue(foundDifferentPixel, "Dark mode should replace white background pixels");
     }
 }
